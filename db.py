@@ -20,30 +20,53 @@ class DataBase(QTableView):
         self.exam_table = examTable.Exam(self.model)
         self.question_table = questionTable.Question(self.model)
         self.createTable()
-        print(self.student_table.find(course_id = 9,classid = 7))
 
+    def getCourseName(self):
+        name = []
+        name_to_id = {}
+        all_course = self.course_table.find()
+        for course in all_course:
+            name.append(course[-1])
+            name_to_id[course[-1]] = course[0]
+        return name, name_to_id
 
-        #print(self.escore_table.find())
-        #self.student_table.insert('2017151024','黄小泽',1,1)
-        #self.exam_table.insert('平时考试','2019-10-1',1,1,'0-1-2-3','2,2,2,4')
-        #self.exam_table.delete(1)
-        #self.student_table.find(id=1)
-        #self.exam_table.update(3,classid=2)
+    def getClassName(self,courseid = None):
+        name = []
+        name_to_id = {}
+        if courseid==None:
+            all_class = self.class_table.find()
+        else:
+            all_class = self.class_table.find(course_id = courseid)
+        for class_ in all_class:
+            name.append(class_[1])
+            name_to_id[class_[1]] = class_[0]
+        return name, name_to_id
 
-        #self.question_table.delete(1)
+    def getExamName(self,courseid = None, classid = None):
+        name = []
+        if courseid == None and classid == None:
+            all_exam = self.exam_table.find()
+        else:
+            all_exam = self.exam_table.find(courseid = courseid,classid = classid)
+        for exam in all_exam:
+            name.append(exam[1])
+        if courseid == None and classid == None:
+            return name
+        else:
+            name_to_id = {}
+            for exam in all_exam:
+                name_to_id[exam[1]] = exam[0]
+            return name, name_to_id
 
-        # questions = ['选择题','填空题','简答题','附加题']
-        # for question in questions:
-        #     self.question_table.insert(question)
-
-
-        #self.class_table.insert('A班',1)
-        #self.class_table.delete(id)
-        #self.course_table.insert('10010','中国电信')
-        #self.course_table.update(2,courseName="啥？",courseNumber="2019")
-        #self.course_table.delete(1)
-        #print(self.course_table.get_course_amount())
-
+    def getQuestionName(self):
+        name = []
+        name_to_id = {}
+        all_question = self.question_table.find()
+        for question in all_question:
+            name.append(question[-1])
+            name_to_id[question[-1]] = question[0]
+        print(name,name_to_id)
+        return name, name_to_id       
         
 
     def createTable(self):
@@ -54,17 +77,15 @@ class DataBase(QTableView):
         self.exam_table.createTable()
         self.escore_table.createTable()
 
-
     def db_connect(self):
         self.db = QSqlDatabase.addDatabase('QSQLITE')    # 1
         self.db.setDatabaseName('./学生成绩数据库.db')             # 2
-
         if not self.db.open():                           # 3
             QMessageBox.critical(self, 'Database Connection', self.db.lastError().text())
 
     def closeDB(self):
         self.db.close()
-        
+
     def closeEvent(self, QCloseEvent):
         self.db.close()
  
