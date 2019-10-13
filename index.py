@@ -55,12 +55,12 @@ class studentScoreManage(QMainWindow):
 		message.move(100,20)
 
 	def initMenu(self):
-		self.file_menu = self.menuBar().addMenu('新建')  # 菜单栏
-		self.edit_menu = self.menuBar().addMenu('编辑')  #
+		self.build_menu = self.menuBar().addMenu('新建')  # 菜单栏
+		self.load_menu = self.menuBar().addMenu('导入')  #
 		self.help_menu = self.menuBar().addMenu('帮助')  #
 
 		self.newExam_toolbar = self.addToolBar('newExam')
-		self.file_toolbar = self.addToolBar('File') # 工具栏
+		self.load_toolbar = self.addToolBar('File') # 工具栏
 		self.edit_toolbar = self.addToolBar('Edit')
 
 		self.status_bar = self.statusBar() # 状态显示
@@ -88,17 +88,18 @@ class studentScoreManage(QMainWindow):
 
 
 		self.newExam_toolbar.addAction(self.newExam_action)		# 将动作添加到工具栏
-		self.file_toolbar.addAction(self.load_action)
-		self.file_toolbar.addAction(self.dump_action)
+		self.load_toolbar.addAction(self.load_action)
+		self.load_toolbar.addAction(self.dump_action)
+		self.load_toolbar.addAction(self.load_studentData_action)
 		self.edit_toolbar.addAction(self.setweight_action)
 		self.edit_toolbar.addAction(self.view_action)
 
 
-		self.file_menu.addAction(self.newcourse_action)			# 将动作添加到菜单栏
-		self.file_menu.addAction(self.newclass_action)
-		self.file_menu.addAction(self.newQuestion_action)
-		self.file_menu.addAction(self.load_studentData_action)
-		self.file_menu.addAction(self.load_action)
+		self.build_menu.addAction(self.newcourse_action)			# 将动作添加到菜单栏
+		self.build_menu.addAction(self.newclass_action)
+		self.build_menu.addAction(self.newQuestion_action)
+		self.load_menu.addAction(self.load_studentData_action)
+		self.load_menu.addAction(self.load_action)
 
 
 	def addQuestion(self):
@@ -130,7 +131,7 @@ class studentScoreManage(QMainWindow):
 	def setExamName(self):
 		self.examName = self.examName_lineedit.text()
 		print(self.examName)
-	def addExam(self,parent):
+	def addExam(self,parent): #添加一场考试
 		question = []
 		weight = []
 		headers_data = []
@@ -164,13 +165,12 @@ class studentScoreManage(QMainWindow):
 		if select == QMessageBox.Ok:
 			print("hahahhaha")
 
-	def getTableData(self, **args):
+	def getTableData(self, **args):#获取表头数据
 		exam = self.database.exam_table.find(
 			examName= args['examName'],
 			classid=int(args['classid']),
 			courseid=int(args['courseid'])
 			)
-
 		if exam!=[]:
 			examid = int(exam[0][0])
 			question_type = exam[0][5].split('-')
@@ -193,7 +193,6 @@ class studentScoreManage(QMainWindow):
 					classid = int(args['classid']),
 					courseid = int(args['courseid'])
 				)
-			print(score)
 			if score!=[] and score[-1]!="":
 				score_data = json.loads(score[0][-1])
 				res = [number,name]
@@ -202,16 +201,12 @@ class studentScoreManage(QMainWindow):
 					res.append(score_data[keys])
 					mark+=float(score_data[keys])*float(weight_set[i])/100
 				res.append(str(mark))
-
-				print(score_data, question_type,weight_set)
 				datas.append(res)
 		return headers,datas
 
 
 	def createNewExam(self):
 		widget = QDialog()
-		widget.resize(600,600)
-
 		courselabel = QLabel('课程')
 		classlabel = QLabel('班级')
 		examName = QLabel('考试类型')
@@ -360,10 +355,13 @@ class studentScoreManage(QMainWindow):
 
 	def loadStudent(self):
 		students = LD.loadStudent(self.FILEPATH)
-		for student in students:
-			self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
-
-		self.display_exam(self.database.student_table.find())
+		# for student in students:
+		# 	self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
+		headers = ['学号','姓名']
+		datas = []
+		for student in self.database.student_table.find(classid = int(self.classid),course_id = int(self.courseid)):
+			datas.append((student[1],student[2]))
+		self.showScoreTable(headers,datas)
 		QApplication.processEvents()
 		QMessageBox.information(self,'导入成功','!!!')
 
@@ -503,8 +501,9 @@ class studentScoreManage(QMainWindow):
 		save = QPushButton('保存修改',self.midwidget)
 		save.move(450,530)
 
-	def showScoreTable(self,headers, datas):
-		headers.append('成绩')
+	def showScoreTable(self,headers:'表头数据 list', datas):#显示成绩表
+		if len(headers)<len(datas[0]):
+			headers.append('成绩')
 		self.MyTable.setColumnCount(len(headers))
 		self.MyTable.setRowCount(len(datas))
 		self.MyTable.setHorizontalHeaderLabels(headers)
@@ -538,6 +537,8 @@ class studentScoreManage(QMainWindow):
 	def loadData_getExamName(self,classid,combox,class_combox):
 		self.classid = self.className_to_Id[class_combox.currentText()]
 		examData = self.database.exam_table.find(classid = self.classid,courseid= int(self.courseid))
+		self.exam_weight = list(map(float,examData[0][-1].split('-')))
+		print(self.exam_weight)
 		while combox.count()!=0:
 			combox.removeItem(0)
 		examName = [item[1] for item in examData]
@@ -553,25 +554,26 @@ class studentScoreManage(QMainWindow):
 
 	def loadData_getQuestion(self,parent,this):
 		self.load_examid = self.examName_to_id[this.currentText()]
-		print(self.load_examid)
-		question_id = list(map(int,self.examName_to_questionType[self.examName_combox.currentText()].split('-')))
-		question = []
+		self.question_id = list(map(int,self.examName_to_questionType[self.examName_combox.currentText()].split('-')))
+		self.question = []
 		self.question_type_to_id = {}
-		for id_ in question_id:
+		for id_ in self.question_id:
 			res = self.database.question_table.find(id=id_)[0]
-			question.append(res[-1])
+			self.question.append(res[-1])
 			self.question_type_to_id[res[-1]] = res[0]
 		for i, ql in enumerate(self.question_labels) :
 			self.question_labels[i].setVisible(False)  #稳定吗？
 			self.weights[i].setVisible(False)
 			self.question_vlayout.removeWidget(self.question_labels[i])
 			self.question_vlayout.removeWidget(self.weights[i])
-		self.question_labels = [QLabel(q) for q in question]
 
+		self.question_labels = [QLabel("学号"),QLabel("姓名")]
+		self.question_labels.extend([QLabel(q) for q in self.question])
 		self.col = []
-		for q in question:
+		for i in range(len(self.question)+2):
 			spinbox = QSpinBox()
 			spinbox.setRange(1,100)
+			spinbox.setValue(i+1)
 			self.col.append(spinbox)
 		vlayout = QVBoxLayout()
 		for item in zip(self.question_labels,self.col):
@@ -587,7 +589,51 @@ class studentScoreManage(QMainWindow):
 		for c in self.col:
 			cols.append(int(c.value()))
 		datas = LD.loadScore(self.FILEPATH,cols)
-		print(datas)
+		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
+
+		d_students = [(n[cols[0]-1],n[cols[1]-1]) for n in datas]
+		s_students = [(n[1],n[2]) for n in all_students]
+
+		#获取到excel表中的学生成绩记录和数据库中的学生成绩记录后检查，两者的学生人数是否一致，不一致的话，不在数据库中的学生需要添加到数据库，已经在数据库中的学生不在成绩表中需要将其成绩设置为0
+		d_sub_s = list(set(d_students) - set(s_students))
+		s_sub_d = list(set(s_students) - set(d_students))
+		for student in d_sub_s:
+			self.database.student_table.insert(student[0],student[1],int(self.classid),int(self.courseid))
+		for student in s_sub_d:
+			student = list(student)
+			student.extend([0 for i in range(len(cols)-2)])
+			datas.append(tuple(student))
+
+		#更新学生表以获得id
+		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
+		student_dict = {}
+		for student in all_students:
+			student_dict[student[1]] = student[0]
+
+		scores = []
+		for s_score in datas:
+			score = {}
+			s = 0
+			for i,id_ in enumerate(self.question_id):
+				score[str(id_)] = s_score[i+2] 
+				print(type(s_score[i+2]),s_score[i+2])
+				s+=self.exam_weight[i]*float(s_score[i+2])/100
+			scores.append(s)
+			#还需要学生成绩如果已经存在的情况则变成修改
+			exist = self.database.escore_table.find(examid = self.load_examid,studentid = int(student_dict[s_score[0]]),classid= int(self.classid),courseid = int(self.courseid))
+			if exist!=[]:
+				self.database.escore_table.update(exist[0][0],score_json = json.dumps(score))
+			else:
+				self.database.escore_table.insert(int(self.load_examid),int(student_dict[s_score[0]]),int(self.classid),int(self.courseid),json.dumps(score))
+		headers = ['学号','姓名']
+		headers.extend(self.question)
+
+		s_datas = []
+		for i, data in enumerate(datas):
+			data = list(data)
+			data.append(scores[i])
+			s_datas.append(data)
+		self.showScoreTable(headers,s_datas)
 
 
 	def loadData(self):
@@ -745,9 +791,6 @@ class studentScoreManage(QMainWindow):
 		pass
 	def change_func(self, item, column):
 		self.label.setText(item.text(column))                   # 8
-
-		print(item.text(column))
-		print(column)
 		if item == self.subjectTree:                                 # 9
 		    if self.subjectTree.checkState(0) == Qt.Checked:
 		        [x.setCheckState(0, Qt.Checked) for x in self.item_list]
@@ -759,7 +802,9 @@ class studentScoreManage(QMainWindow):
 		        if x.checkState(0) == Qt.Checked:
 		            check_count += 1
 
-		
+	def closeEvent(self,event):
+		print('close')
+		self.database.closeDB()
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)

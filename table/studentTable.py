@@ -37,15 +37,17 @@ class Student(QTableView):
 
     def find(self,**args):
         condition = []
+        print(args)
         for key, value in args.items():   
-            condition.append("{0}='{1}'".format(key,value))
+            condition.append("{0}={1}".format(key,value))
         And = " and ".join(condition)
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
         if condition!=[]:
-            sql = 'select * from student where {};'.format(And)
+            sql = 'select * from student where {}'.format(And)
         else:
             sql = 'select * from student'
+        print(sql)
         model.exec_(sql)
         res = []
         while model.next():

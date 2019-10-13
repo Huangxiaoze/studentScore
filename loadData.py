@@ -17,9 +17,12 @@ def loadScore(filepath,args:list):
 	datas = []
 	for x in range(0, worksheet.nrows):
 		row = worksheet.row(x)
-		data = [str(row[0].value).replace('.',''),row[1].value]
+		data = []
 		for i in args:
-			data.append(str(row[int(i)-1].value))
+			if i==args[0]:
+				data.append(str(row[int(i)-1].value).replace('.',''))
+			else:
+				data.append(str(row[int(i)-1].value))
 		datas.append(tuple(data))
 	return datas
 if __name__ == '__main__':

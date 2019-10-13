@@ -20,8 +20,9 @@ class DataBase(QTableView):
         self.exam_table = examTable.Exam(self.model)
         self.question_table = questionTable.Question(self.model)
         self.createTable()
+        print(self.student_table.find(course_id = 9,classid = 7))
 
-        self.escore_table.insert(12,12,9,7,json.dumps({1:3,2:0,3:8}))
+
         #print(self.escore_table.find())
         #self.student_table.insert('2017151024','黄小泽',1,1)
         #self.exam_table.insert('平时考试','2019-10-1',1,1,'0-1-2-3','2,2,2,4')
@@ -61,7 +62,9 @@ class DataBase(QTableView):
         if not self.db.open():                           # 3
             QMessageBox.critical(self, 'Database Connection', self.db.lastError().text())
 
-
+    def closeDB(self):
+        self.db.close()
+        
     def closeEvent(self, QCloseEvent):
         self.db.close()
  
