@@ -27,6 +27,7 @@ class studentScoreManage(QMainWindow):
 
 	def initWindow(self):
 		self.resize(1620,650)
+		self.setWindowIcon(QIcon('./windowIcon.png'))
 		self.setWindowTitle('成绩管理')
 		with open('./setting.json','r') as f:
 			content = f.read()
@@ -52,6 +53,7 @@ class studentScoreManage(QMainWindow):
 	def initrightwidget(self):
 		message = QLabel('考试信息',self.rightwidget)
 		message.move(100,20)
+		self.r_widget = None
 
 	def initMenu(self):
 		self.build_menu = self.menuBar().addMenu('新建')  # 菜单栏
@@ -142,17 +144,17 @@ class studentScoreManage(QMainWindow):
 
 		self.question_type = "-".join(question)
 		self.question_weight = "-".join(weight)
-		"""
-		self.database.exam_table.insert(
-				self.examName,
-				self.examDate,
-				int(self.classid),
-				int(self.courseid),
-				self.question_type,
-				self.question_weight
-			)
-		"""
-		headers,datas = self.getTableData(
+		
+		# self.database.exam_table.insert(
+		# 		self.examName,
+		# 		self.examDate,
+		# 		int(self.classid),
+		# 		int(self.courseid),
+		# 		self.question_type,
+		# 		self.question_weight
+		# 	)
+		
+		headers,datas,weight_set = self.getTableData(
 			examName = self.examName,
 			examDate = self.examDate,
 			classid = self.classid,
@@ -174,10 +176,12 @@ class studentScoreManage(QMainWindow):
 		if exam!=[]:
 			examid = int(exam[0][0])
 			question_type = exam[0][5].split('-')
-			weight_set = exam[0][-1].split('-')
+			weight_set = list(map(int,exam[0][-1].split('-')))
 		h = []
-		for qid in question_type:
+
+		for i,qid in enumerate(question_type):
 			h.append(id_to_qName[int(qid)])
+
 		headers = ['姓名','学号']
 		headers.extend(h)
 
@@ -201,10 +205,10 @@ class studentScoreManage(QMainWindow):
 				mark = 0
 				for i,keys in enumerate(question_type):
 					res.append(score_data[keys])
-					mark+=float(score_data[keys])*float(weight_set[i])/100
+					mark+=float(score_data[keys])*weight_set[i]/100
 				res.append(str(mark))
 				datas.append(res)
-		return headers,datas
+		return headers,datas,weight_set
 
 
 	def createNewExam(self):
@@ -501,7 +505,7 @@ class studentScoreManage(QMainWindow):
 		save.move(450,530)
 
 	def showScoreTable(self,headers:'表头数据 list', datas):#显示成绩表
-		if len(headers)<len(datas[0]):
+		if datas!=[] and len(headers)<len(datas[0]):
 			headers.append('成绩')
 		self.MyTable.setColumnCount(len(headers))
 		self.MyTable.setRowCount(len(datas))
@@ -552,6 +556,8 @@ class studentScoreManage(QMainWindow):
 		QApplication.processEvents()
 
 	def loadData_getQuestion(self,parent,this):
+		if this.currentText() == '':
+			return
 		self.load_examid = self.examName_to_id[this.currentText()]
 		self.question_id = list(map(int,self.examName_to_questionType[self.examName_combox.currentText()].split('-')))
 		self.question = []
@@ -744,6 +750,12 @@ class studentScoreManage(QMainWindow):
 		currentItem.setCheckState(0,Qt.Checked)
 		if parent == self.subjectTree:
 			self.COURSEID = self.database.getCourseName()[1][currentItem.text(0)]
+
+			self.CLASSID = None
+			self.EXAMID = None
+			if self.r_widget!=None:
+				self.r_widget.setVisible(False)
+
 			class_, classname_to_Id = self.database.getClassName()
 			while self.class_Tree.childCount()!=0:
 				self.class_Tree.removeChild(self.class_Tree.child(0))
@@ -756,7 +768,8 @@ class studentScoreManage(QMainWindow):
 				tem.setCheckState(0, Qt.Unchecked)
 		elif parent == self.class_Tree:
 			if self.COURSEID!=None:
-				print(self.COURSEID)
+				if self.r_widget!=None:
+					self.r_widget.setVisible(False)
 				self.CLASSID = self.database.getClassName(courseid = self.COURSEID)[1][currentItem.text(0)]
 				exam, examName_to_id = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)
 				while self.exam_Tree.childCount()!=0:
@@ -768,56 +781,64 @@ class studentScoreManage(QMainWindow):
 				print(exam)
 		else:
 			if self.COURSEID!=None and self.CLASSID !=None:
+				self.EXAMNAME = currentItem.text(0)
 				self.EXAMID = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)[1][currentItem.text(0)]
 				print(self.EXAMID)
-				headers,datas = self.getTableData(
+				headers,datas,weight_set = self.getTableData(
 					examName = currentItem.text(0),
 					classid = self.CLASSID,
 					courseid = self.COURSEID,
 					)
+				self.QUESTION_TYPE = headers[2:]
+				self.QUESTION_WEIGHT = weight_set
 				self.showScoreTable(headers,datas)
 				self.setRightWidget()
 
+	def changeweight(self,parent):
+		select = QMessageBox.information(parent,"更改题型权重",'确认更改？',QMessageBox.Ok|QMessageBox.Cancel)
+		if select == QMessageBox.Cancel:
+			return
+		values = [str(w.value()) for w in self.r_weights]
+		self.database.exam_table.update(self.EXAMID,weight_set = "-".join(values))
+
+		headers,datas,weight_set = self.getTableData(
+		examName = self.EXAMNAME,
+		classid = self.CLASSID,
+		courseid = self.COURSEID,
+		)
+
+		self.showScoreTable(headers,datas)
+
 	def setRightWidget(self):
-		widget = QWidget(self.rightwidget)
+		if self.r_widget != None:
+			self.r_widget.setVisible(False)
+		self.r_widget = QWidget(self.rightwidget)
 		courselabel = QLabel('课程')
 		classlabel = QLabel('班级')
 		examName = QLabel('考试类型')
-		self.examName_lineedit = QLineEdit()
 		questiontype = QLabel('题型及权重：')
 		time_label = QLabel("考试日期：")
-		self.examTime = QDateTimeEdit(QDateTime.currentDateTime())
-		self.examTime.setCalendarPopup(True)
-		self.examTime.dateChanged.connect(self.setexamDate)
-		self.examName_lineedit.textChanged.connect(self.setExamName)
 
-		subjectlist = [item[-1] for item in self.database.course_table.find()]
-		class_list = [item[1] for item in self.database.class_table.find()]
-		question_list = [item[-1] for item in self.database.question_table.find()]
+		exam = self.database.exam_table.find(id=self.EXAMID)[0]
+		examName_label = QLabel(exam[1])
+		examTime_label = QLabel(exam[2])
 
-		courseCombox = QComboBox()
-		courseCombox.addItems(subjectlist)
-		#courseCombox.currentIndexChanged.connect(lambda : self.setCourseId(courseCombox.currentIndex()+1))
+		courseName = self.database.course_table.find(id = self.COURSEID)[0][2]
+		className = self.database.class_table.find(id=self.CLASSID)[0][1]
+		courseName_label = QLabel(courseName)
+		className_label = QLabel(className)
 
-		classCombox = QComboBox()
-		classCombox.addItems(class_list)
-		#classCombox.currentIndexChanged.connect(lambda : self.setClassId(classCombox.currentIndex()+1))	
-		
-		self.checkboxs = [ ]
-		for question in question_list:
-			question_checkbox = QCheckBox(question)
-			self.checkboxs.append(question_checkbox)
-
-		self.weights = []
-		for i in range(len(question_list)):
+		self.r_question_labels = [QLabel(n+" :") for n in self.QUESTION_TYPE]
+		self.r_weights = []
+		for w in self.QUESTION_WEIGHT:
 			spinbox = QSpinBox()
 			spinbox.setRange(0,100)
-			spinbox.setValue(100)
-			self.weights.append(spinbox)
+			spinbox.setValue(w)
+			self.r_weights.append(spinbox)
 		
 		hlayouts = []
 
-		for item in zip(self.checkboxs,self.weights):
+		for item in zip(self.r_question_labels,self.r_weights):
 			h = QHBoxLayout()
 			h.addWidget(item[0])
 			h.addWidget(item[1])
@@ -825,19 +846,19 @@ class studentScoreManage(QMainWindow):
 
 		hlayout1 = QHBoxLayout()
 		hlayout1.addWidget(courselabel)
-		hlayout1.addWidget(courseCombox)
+		hlayout1.addWidget(courseName_label)
 
 		hlayout2 = QHBoxLayout()
 		hlayout2.addWidget(classlabel)
-		hlayout2.addWidget(classCombox)
+		hlayout2.addWidget(className_label)
 
 		hlayout4 = QHBoxLayout()
 		hlayout4.addWidget(time_label)
-		hlayout4.addWidget(self.examTime)
+		hlayout4.addWidget(examTime_label)
 
 		hlayout3 = QHBoxLayout()
 		hlayout3.addWidget(examName)
-		hlayout3.addWidget(self.examName_lineedit)
+		hlayout3.addWidget(examName_label)
 
 		vlayout = QVBoxLayout()
 		vlayout.addLayout(hlayout1)
@@ -850,12 +871,13 @@ class studentScoreManage(QMainWindow):
 		for hlayout in hlayouts:
 			vlayout.addLayout(hlayout)
 
-		save_button = QPushButton('保存')
-		#save_button.clicked.connect(lambda:self.addExam(widget))
+		save_button = QPushButton('保存修改')
+		save_button.clicked.connect(lambda:self.changeweight(self.r_widget))
 		vlayout.addWidget(save_button)
 
-		widget.setLayout(vlayout)
-		widget.show()
+		self.r_widget.setLayout(vlayout)
+		self.r_widget.move(0,40)
+		self.r_widget.show()
 
 
 
@@ -890,23 +912,6 @@ class studentScoreManage(QMainWindow):
 		    item.setText(0, c)
 		    item.setCheckState(0, Qt.Unchecked)
 		    self.subjectItems.append(item)
-
-		class_list, classname_to_Id = self.database.getClassName()
-		self.classItems = []
-		for i, c in enumerate(class_list):                     # 5
-		    tem = QTreeWidgetItem(self.class_Tree)
-		    tem.setText(0, c)
-		    tem.setCheckState(0, Qt.Unchecked)
-		    self.classItems.append(tem)
-
-		
-		exam_list = self.database.getExamName()
-		self.examItems = []
-		for i, c in enumerate(exam_list):                     # 5
-		    tem = QTreeWidgetItem(self.exam_Tree)
-		    tem.setText(0, c)
-		    tem.setCheckState(0, Qt.Unchecked)
-		    self.examItems.append(tem)
 
 		self.tree.expandAll() 
 		self.tree.setStyleSheet('border:2px solid red;color:red;text-align:center;')  
