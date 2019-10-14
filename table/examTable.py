@@ -21,6 +21,7 @@ class Exam(QTableView):
                 examtime varchar(50),
                 classid int,
                 courseid int,
+                exam_weight int,
                 question_type varchar(50),
                 weight_set text,
                 constraint classid foreign key(classid) references class(id),
@@ -60,7 +61,8 @@ class Exam(QTableView):
                 model.value(3),
                 model.value(4),
                 model.value(5),
-                model.value(6)
+                model.value(6),
+                model.value(7)
                 ))
         return res
 
@@ -79,21 +81,19 @@ class Exam(QTableView):
         sql = "delete from exam where id={}".format(id)
         model.exec_(sql)
 
-    def insert(self, examName,examtime,classid,courseid,question_type,weight_set):
+    def insert(self, examName,examtime,classid,courseid,question_type,weight_set,exam_weight):
         try:
+            print("hello")
             model = QSqlQuery()
             model.exec_('PRAGMA foreign_keys = ON;')
             # datetime.datetime.strptime(str,'%Y-%m-%d')
             sql = """
-            insert into exam(examName,classid,courseid,question_type,weight_set,examtime) 
-            values('{0}',{1},{2},'{3}','{4}','{5}')
-            """.format(examName,classid,courseid,question_type,weight_set,examtime)
+            insert into exam(examName,classid,courseid,question_type,weight_set,examtime,exam_weight) 
+            values('{0}',{1},{2},'{3}','{4}','{5}',{6})
+            """.format(examName,classid,courseid,question_type,weight_set,examtime,exam_weight)
             res = model.exec_(sql)
-            #print(res)
         except e:
             pass
-            #print("helo")
-            #print(e)
  
  
 if __name__ == '__main__':

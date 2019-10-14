@@ -125,17 +125,25 @@ class studentScoreManage(QMainWindow):
 		self.database.question_table.insert(self.descLineEdit.text())
 		QMessageBox.information(parent,'添加题型','成功')
 
-	def setexamDate(self):
-		self.examDate = str(self.examTime.date().toString("yyyy-MM-dd"))
-		print(self.examDate)
-
-	def setExamName(self):
-		self.examName = self.examName_lineedit.text()
-		print(self.examName)
 	def addExam(self,parent): #添加一场考试
+		x,courseName_to_id = self.database.getCourseName()
+		y,className_to_id = self.database.getClassName()
+		courseid = courseName_to_id[self.createexam_courseCombox.currentText()]
+		classid = className_to_id[self.createexam_classCombox.currentText()]
+		examName = self.examName_lineedit.text()
+		examDate = str(self.examTime.date().toString("yyyy-MM-dd"))
+		if self.database.exam_table.find(classid=classid, courseid = courseid,examName=examName) != []:
+			QMessageBox.warning(parent,'错误','{0} {1} {2} 已存在，请更改考试名称。'.format(
+				self.createexam_courseCombox.currentText(),
+				self.createexam_classCombox.currentText(),
+				examName
+				),QMessageBox.Ok)
+			return
+
 		question = []
 		weight = []
 		headers_data = []
+
 		for i,checkbox in enumerate(self.checkboxs):
 			if checkbox.checkState() == Qt.Checked:
 				question.append(str(i+1))
@@ -144,24 +152,25 @@ class studentScoreManage(QMainWindow):
 
 		self.question_type = "-".join(question)
 		self.question_weight = "-".join(weight)
-		
-		# self.database.exam_table.insert(
-		# 		self.examName,
-		# 		self.examDate,
-		# 		int(self.classid),
-		# 		int(self.courseid),
-		# 		self.question_type,
-		# 		self.question_weight
-		# 	)
+
+		self.database.exam_table.insert(
+				examName,
+				examDate,
+				classid,
+				courseid,
+				self.question_type,
+				self.question_weight,
+				self.examweight_spinbox.value()
+			)
 		
 		headers,datas,weight_set = self.getTableData(
-			examName = self.examName,
-			examDate = self.examDate,
-			classid = self.classid,
-			courseid = self.courseid,
+			examName = examName,
+			examDate = examDate,
+			classid = classid,
+			courseid = courseid,
 			)
 		self.showScoreTable(headers,datas)
-		select = QMessageBox.information(parent,'添加考试','成功添加',QMessageBox.Ok|QMessageBox.Cancel)
+		select = QMessageBox.information(parent,'添加考试','成功添加，功能关闭',QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
 			print("hahahhaha")
 
@@ -173,9 +182,10 @@ class studentScoreManage(QMainWindow):
 			)
 		qName, qName_to_id = self.database.getQuestionName()
 		id_to_qName = {v:k for k,v in qName_to_id.items()}
+		print(exam)
 		if exam!=[]:
 			examid = int(exam[0][0])
-			question_type = exam[0][5].split('-')
+			question_type = exam[0][-2].split('-')
 			weight_set = list(map(int,exam[0][-1].split('-')))
 		h = []
 
@@ -199,6 +209,8 @@ class studentScoreManage(QMainWindow):
 					classid = int(args['classid']),
 					courseid = int(args['courseid'])
 				)
+			print(score)
+
 			if score!=[] and score[-1]!="":
 				score_data = json.loads(score[0][-1])
 				res = [number,name]
@@ -210,6 +222,12 @@ class studentScoreManage(QMainWindow):
 				datas.append(res)
 		return headers,datas,weight_set
 
+	def setGetClass(self,parent,combox):
+		courseid = self.createclass_name_to_id[parent.currentText()]
+		all_class, x = self.database.getClassName(courseid)
+		while combox.count() != 0:
+			combox.removeItem(0)
+		combox.addItems(all_class)
 
 	def createNewExam(self):
 		widget = QDialog()
@@ -218,24 +236,25 @@ class studentScoreManage(QMainWindow):
 		examName = QLabel('考试类型')
 		self.examName_lineedit = QLineEdit()
 		questiontype = QLabel('题型及权重：')
+
+		examweight_label = QLabel("考试在总评中占比：")
+		self.examweight_spinbox = QSpinBox()
+		self.examweight_spinbox.setRange(0,100)
+		self.examweight_spinbox.setValue(100)
+
 		time_label = QLabel("考试日期：")
 		self.examTime = QDateTimeEdit(QDateTime.currentDateTime())
 		self.examTime.setCalendarPopup(True)
-		self.examTime.dateChanged.connect(self.setexamDate)
-		self.examName_lineedit.textChanged.connect(self.setExamName)
 
-		subjectlist = [item[-1] for item in self.database.course_table.find()]
-		class_list = [item[1] for item in self.database.class_table.find()]
-		question_list = [item[-1] for item in self.database.question_table.find()]
+		subjectlist, self.createclass_name_to_id = self.database.getCourseName()
+		question_list,x = self.database.getQuestionName()
 
-		courseCombox = QComboBox()
-		courseCombox.addItems(subjectlist)
-		courseCombox.currentIndexChanged.connect(lambda : self.setCourseId(courseCombox.currentIndex()+1))
+		self.createexam_courseCombox = QComboBox()
+		self.createexam_courseCombox.addItems(subjectlist)
+		self.createexam_classCombox = QComboBox()
 
-		classCombox = QComboBox()
-		classCombox.addItems(class_list)
-		classCombox.currentIndexChanged.connect(lambda : self.setClassId(classCombox.currentIndex()+1))	
-		
+		self.createexam_courseCombox.currentIndexChanged.connect(lambda:self.setGetClass(self.createexam_courseCombox,self.createexam_classCombox))
+
 		self.checkboxs = [ ]
 		for question in question_list:
 			question_checkbox = QCheckBox(question)
@@ -256,18 +275,13 @@ class studentScoreManage(QMainWindow):
 			h.addWidget(item[1])
 			hlayouts.append(h)
 
-
-
-
-
-
 		hlayout1 = QHBoxLayout()
 		hlayout1.addWidget(courselabel)
-		hlayout1.addWidget(courseCombox)
+		hlayout1.addWidget(self.createexam_courseCombox)
 
 		hlayout2 = QHBoxLayout()
 		hlayout2.addWidget(classlabel)
-		hlayout2.addWidget(classCombox)
+		hlayout2.addWidget(self.createexam_classCombox)
 
 		hlayout4 = QHBoxLayout()
 		hlayout4.addWidget(time_label)
@@ -282,6 +296,12 @@ class studentScoreManage(QMainWindow):
 		vlayout.addLayout(hlayout2)
 		vlayout.addLayout(hlayout4)
 		vlayout.addLayout(hlayout3)
+
+		hlayoutt = QHBoxLayout()
+		hlayoutt.addWidget(examweight_label)
+		hlayoutt.addWidget(self.examweight_spinbox)
+
+		vlayout.addLayout(hlayoutt)
 
 		vlayout.addWidget(questiontype)
 		for hlayout in hlayouts:
@@ -298,6 +318,9 @@ class studentScoreManage(QMainWindow):
 		self.classid = id
 		print(self.classid)
 
+	def sayHello(self):
+		print("hello")
+
 	def loadStudentData(self):
 		widget = QDialog()
 		courselabel = QLabel('请选择课程')
@@ -307,32 +330,24 @@ class studentScoreManage(QMainWindow):
 		self.filepath = QLineEdit()
 		filepathbutton.clicked.connect(lambda:self.selectFile(widget))
 
-		courseCombox = QComboBox()
+		self.l_courseCombox = QComboBox()
+		self.l_classCombox = QComboBox()
+		subjectlist,  self.createclass_name_to_id= self.database.getCourseName()
+		self.l_courseCombox.addItems(subjectlist)
 
-		all_course = self.database.course_table.find()
-		subjectlist = [item[-1] for item in all_course]
-		courseCombox.addItems(subjectlist)
 		courseCombox_label = QLabel('请选择课程')
-		self.courseid = None
-		courseCombox.currentIndexChanged.connect(lambda : self.setCourseId(courseCombox.currentIndex()+1))
-
-		classCombox = QComboBox()
-		all_class = self.database.class_table.find()
-		class_list = [item[1] for item in all_class]
-		classCombox.addItems(class_list)
-		self.classid = None
-		classCombox.currentIndexChanged.connect(lambda : self.setClassId(classCombox.currentIndex()+1))
+		self.l_courseCombox.currentIndexChanged.connect(lambda : self.setGetClass(self.l_courseCombox, self.l_classCombox))
 
 		load = QPushButton('导入')
 		load.clicked.connect(self.loadStudent)
 
 		hlayout1 = QHBoxLayout()
 		hlayout1.addWidget(courselabel)
-		hlayout1.addWidget(courseCombox)
+		hlayout1.addWidget(self.l_courseCombox)
 
 		hlayout2 = QHBoxLayout()
 		hlayout2.addWidget(classlabel)
-		hlayout2.addWidget(classCombox)
+		hlayout2.addWidget(self.l_classCombox)
 
 		hlayout3 = QHBoxLayout()
 		hlayout3.addWidget(filepathlabel)
@@ -359,41 +374,47 @@ class studentScoreManage(QMainWindow):
 			#列表中的第一个元素即是文件路径，以只读的方式打开文件
 			
 
-	def loadStudent(self):
-		students = LD.loadStudent(self.FILEPATH)
-		for student in students:
-			self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
+	def loadStudent(self): #如果已经存在了，还要导入会造成数据重复，还没写这个逻辑
+		courseName = self.l_courseCombox.currentText()
+		className = self.l_classCombox.currentText()
+		filepath = self.filepath.text()
+		if courseName == '' or className == '' or filepath == '':
+			QMessageBox.warning(self,'操作错误','请把信息填完整')
+			return
+
+		x, coursename_to_id = self.database.getCourseName()
+		y, classname_to_id = self.database.getClassName()
+		students = LD.loadStudent(filepath)
+
+		courseid = coursename_to_id[courseName]
+		classid = classname_to_id[className]
+
+		# for student in students:
+		# 	self.database.student_table.insert(student[0], student[1], classid, courseid)
+
 		headers = ['学号','姓名']
 		datas = []
-		for student in self.database.student_table.find(classid = int(self.classid),course_id = int(self.courseid)):
+		for student in self.database.student_table.find(classid = classid,course_id = courseid):
 			datas.append((student[1],student[2]))
 		self.showScoreTable(headers,datas)
 		QApplication.processEvents()
-		QMessageBox.information(self,'导入成功','!!!')
-
-	def setCourseId(self,id):
-		self.courseid = id
-		print(self.courseid)
+		QMessageBox.information(self,'导入成功，功能关闭','!!!')
 
 	def createClass(self):
 		widget = QDialog()
-		courseCombox = QComboBox()
+		self.c_courseCombox = QComboBox()
 
-		subjectlist,x = self.database.getCourseName()
-		courseCombox.addItems(subjectlist)
+		subjectlist, self.c_coursename_to_id = self.database.getCourseName()
+		self.c_courseCombox.addItems(subjectlist)
 		courseCombox_label = QLabel('请选择课程')
-		self.courseid = None
-		courseCombox.currentIndexChanged.connect(lambda : self.setCourseId(courseCombox.currentIndex()+1))
-		
 
 		self.class_name = QLineEdit()
 		class_name_label = QLabel('请输入班级名称')
-
 		save_pushbutton = QPushButton('保存')
 
 		hlayout = QHBoxLayout()
 		hlayout.addWidget(courseCombox_label)
-		hlayout.addWidget(courseCombox)
+		hlayout.addWidget(self.c_courseCombox)
 
 		hlayout2 = QHBoxLayout()
 		hlayout2.addWidget(class_name_label)
@@ -409,7 +430,8 @@ class studentScoreManage(QMainWindow):
 		widget.exec_()
 
 	def saveClass(self):
-		self.database.class_table.insert(self.class_name.text(),self.courseid)
+		courseid = self.c_coursename_to_id[self.c_courseCombox.currentText()]
+		self.database.class_table.insert(self.class_name.text(),courseid)
 		item = QTreeWidgetItem(self.class_Tree)
 		item.setText(0,self.class_name.text())
 		item.setCheckState(0, Qt.Unchecked)
@@ -476,10 +498,10 @@ class studentScoreManage(QMainWindow):
 		topTooBar.resize(920,80)
 		topTooBar.setStyleSheet("border:2px solid red;padding:20px;color:red;text-align:center;")
 
-		addStudent = QPushButton("增加学生成绩",self.midwidget)
+		addStudent = QPushButton("查看班级总成绩",self.midwidget)
 		addStudent.move(10,10)
 		addStudent.setStyleSheet('border-radius:6px;border:1px solid black;background:#6D6969;padding:6px;')
-		addStudent.clicked.connect(self.search)
+		addStudent.clicked.connect(self.watch_total_score)
 
 		searchLineedit = QLineEdit(self.midwidget)
 		searchLineedit.setPlaceholderText('输入学号')
@@ -524,48 +546,61 @@ class studentScoreManage(QMainWindow):
 
 	def loadData_getExamId(self,combox):
 		self.load_examid = self.examName_to_id[combox.currentText()]
+		print(self.load_examid)
 
-	def loadData_getClass(self,courseid,combobox):
+	def loadData_getClass(self):
+		print('loadData_getClass')
+		course, coursename_to_id = self.database.getCourseName()
+		courseid = coursename_to_id[self.load_courseCombox.currentText()]
 		self.courseid = courseid
-		self.classData = self.database.class_table.find(course_id=courseid)
-		while combobox.count()!=0:
-			combobox.removeItem(0)
-		class_ = [item[1] for item in self.classData]
-		self.className_to_Id = {}
-		for item in self.classData:
-			self.className_to_Id[item[1]] = item[0]
-		combobox.addItems(class_)
+
+		class_, self.className_to_id = self.database.getClassName(courseid)
+
+		self.clearClass = True
+		while self.load_classCombox.count()!=0:
+			self.load_classCombox.removeItem(0)
+		while self.load_examName_combox.count()!=0:
+			self.load_classCombox.removeItem(0)
+		self.clearClass = False
+
+		self.load_classCombox.addItems(class_)
 		QApplication.processEvents()
 
-	def loadData_getExamName(self,classid,combox,class_combox):
-		self.classid = self.className_to_Id[class_combox.currentText()]
-		examData = self.database.exam_table.find(classid = self.classid,courseid= int(self.courseid))
-		self.exam_weight = list(map(float,examData[0][-1].split('-')))
-		print(self.exam_weight)
-		while combox.count()!=0:
-			combox.removeItem(0)
-		examName = [item[1] for item in examData]
-		self.examName_to_questionType = {}
-		self.examName_to_id = {}
-		print(examData,self.classid,self.courseid)
-		for item in examData:
-			self.examName_to_id[item[1]] = item[0]
-			self.examName_to_questionType[item[1]] = item[-2]
-		print(self.examName_to_id)
-		combox.addItems(examName)
-		QApplication.processEvents()
-
-	def loadData_getQuestion(self,parent,this):
-		if this.currentText() == '':
+	def loadData_getExamName(self):
+		print('loadData_getExamName')
+		if self.clearClass==True:
 			return
+		self.classid = self.className_to_id[self.load_classCombox.currentText()]
+		all_exam, self.examName_to_id = self.database.getExamName(classid = self.classid,courseid= self.courseid)
+		print(all_exam, self.examName_to_id)
+		self.clearExamName = True
+		while self.load_examName_combox.count()!=0:
+			self.load_examName_combox.removeItem(0)
+		self.clearExamName = False
+
+		self.load_examName_combox.addItems(all_exam)
+		QApplication.processEvents()
+
+	def loadData_getQuestion(self,parent):
+		if self.clearExamName == True:
+			return
+		print("loadData_getQuestion")
+		this = self.load_examName_combox
 		self.load_examid = self.examName_to_id[this.currentText()]
-		self.question_id = list(map(int,self.examName_to_questionType[self.examName_combox.currentText()].split('-')))
+		print(self.load_examid)
+
+		exam = self.database.exam_table.find(id=self.load_examid)[0]
+
+		self.question_id = list(map(int,exam[-2].split('-')))
+		self.question_weight = list(map(int,exam[-1].split('-')))
+
 		self.question = []
 		self.question_type_to_id = {}
 		for id_ in self.question_id:
 			res = self.database.question_table.find(id=id_)[0]
 			self.question.append(res[-1])
 			self.question_type_to_id[res[-1]] = res[0]
+
 		for i, ql in enumerate(self.question_labels) :
 			self.question_labels[i].setVisible(False)  #稳定吗？
 			self.weights[i].setVisible(False)
@@ -574,14 +609,16 @@ class studentScoreManage(QMainWindow):
 
 		self.question_labels = [QLabel("学号"),QLabel("姓名")]
 		self.question_labels.extend([QLabel(q) for q in self.question])
-		self.col = []
+
+		self.weights = []
 		for i in range(len(self.question)+2):
 			spinbox = QSpinBox()
 			spinbox.setRange(1,100)
 			spinbox.setValue(i+1)
-			self.col.append(spinbox)
+			self.weights.append(spinbox)
+
 		vlayout = QVBoxLayout()
-		for item in zip(self.question_labels,self.col):
+		for item in zip(self.question_labels,self.weights):
 			h = QHBoxLayout()
 			h.addWidget(item[0])
 			h.addWidget(item[1])
@@ -591,7 +628,7 @@ class studentScoreManage(QMainWindow):
 
 	def loadScore(self):
 		cols = []
-		for c in self.col:
+		for c in self.weights:
 			cols.append(int(c.value()))
 		datas = LD.loadScore(self.FILEPATH,cols)
 		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
@@ -614,16 +651,17 @@ class studentScoreManage(QMainWindow):
 		student_dict = {}
 		for student in all_students:
 			student_dict[student[1]] = student[0]
-
 		scores = []
+
 		for s_score in datas:
 			score = {}
 			s = 0
 			for i,id_ in enumerate(self.question_id):
 				score[str(id_)] = s_score[i+2] 
 				print(type(s_score[i+2]),s_score[i+2])
-				s+=self.exam_weight[i]*float(s_score[i+2])/100
+				s+=self.question_weight[i]*float(s_score[i+2])/100
 			scores.append(s)
+
 			#还需要学生成绩如果已经存在的情况则变成修改
 			exist = self.database.escore_table.find(examid = self.load_examid,studentid = int(student_dict[s_score[0]]),classid= int(self.classid),courseid = int(self.courseid))
 			if exist!=[]:
@@ -639,7 +677,7 @@ class studentScoreManage(QMainWindow):
 			data.append(scores[i])
 			s_datas.append(data)
 		self.showScoreTable(headers,s_datas)
-
+		QMessageBox.information(self,'操作结果','导入成功',QMessageBox.Ok)
 
 	def loadData(self):
 		widget = QDialog()
@@ -647,25 +685,26 @@ class studentScoreManage(QMainWindow):
 		courselabel = QLabel('课程')
 		classlabel = QLabel('班级')
 		examName = QLabel('考试类型')
-		self.examName_combox = QComboBox()
 
 		filepathlabel = QLabel("请输入文件路径")
 		filepathbutton = QPushButton('点击选择文件')
 		self.filepath = QLineEdit()
 		filepathbutton.clicked.connect(lambda:self.selectFile(widget))
 
-		questiontype = QLabel('题型及导入表格中相应地列数：')
-
+		questiontype = QLabel('题型及导入表格中相应的列数：')
 
 		subjectlist,x = self.database.getCourseName()
 		question_list,x = self.database.getQuestionName()
-		classCombox = QComboBox()
-		courseCombox = QComboBox()
-		courseCombox.addItems(subjectlist)
+		
+		self.load_courseCombox = QComboBox()
+		self.load_classCombox = QComboBox()
+		self.load_examName_combox = QComboBox()
 
-		courseCombox.currentIndexChanged.connect(lambda : self.loadData_getClass(courseCombox.currentIndex()+1,classCombox))
-		classCombox.currentIndexChanged.connect(lambda : self.loadData_getExamName(classCombox.currentIndex()+1,self.examName_combox,classCombox))	
-		self.examName_combox.currentIndexChanged.connect(lambda:self.loadData_getQuestion(widget,self.examName_combox))
+		self.load_courseCombox.addItems(subjectlist)
+
+		self.load_courseCombox.currentIndexChanged.connect(self.loadData_getClass)
+		self.load_classCombox.currentIndexChanged.connect(self.loadData_getExamName)	
+		self.load_examName_combox.currentIndexChanged.connect(lambda:self.loadData_getQuestion(widget))
 
 		self.question_labels = [ ]
 		for question in question_list:
@@ -689,17 +728,15 @@ class studentScoreManage(QMainWindow):
 
 		hlayout1 = QHBoxLayout()
 		hlayout1.addWidget(courselabel)
-		hlayout1.addWidget(courseCombox)
+		hlayout1.addWidget(self.load_courseCombox)
 
 		hlayout2 = QHBoxLayout()
 		hlayout2.addWidget(classlabel)
-		hlayout2.addWidget(classCombox)
-
+		hlayout2.addWidget(self.load_classCombox)
 
 		hlayout3 = QHBoxLayout()
 		hlayout3.addWidget(examName)
-		hlayout3.addWidget(self.examName_combox)
-
+		hlayout3.addWidget(self.load_examName_combox)
 
 		hlayout4 = QHBoxLayout()
 		hlayout4.addWidget(filepathlabel)
@@ -799,8 +836,9 @@ class studentScoreManage(QMainWindow):
 		if select == QMessageBox.Cancel:
 			return
 		values = [str(w.value()) for w in self.r_weights]
-		self.database.exam_table.update(self.EXAMID,weight_set = "-".join(values))
 
+		examweight = self.r_examweight.value()
+		self.database.exam_table.update(self.EXAMID,weight_set = "-".join(values),exam_weight = examweight)
 		headers,datas,weight_set = self.getTableData(
 		examName = self.EXAMNAME,
 		classid = self.CLASSID,
@@ -818,10 +856,14 @@ class studentScoreManage(QMainWindow):
 		examName = QLabel('考试类型')
 		questiontype = QLabel('题型及权重：')
 		time_label = QLabel("考试日期：")
+		examweight_label = QLabel("考试在总评中占比：")
+		self.r_examweight = QSpinBox()
+		self.r_examweight.setRange(0,100)
 
 		exam = self.database.exam_table.find(id=self.EXAMID)[0]
 		examName_label = QLabel(exam[1])
 		examTime_label = QLabel(exam[2])
+		self.r_examweight.setValue(exam[-3])
 
 		courseName = self.database.course_table.find(id = self.COURSEID)[0][2]
 		className = self.database.class_table.find(id=self.CLASSID)[0][1]
@@ -866,6 +908,11 @@ class studentScoreManage(QMainWindow):
 		vlayout.addLayout(hlayout4)
 		vlayout.addLayout(hlayout3)
 		
+		hh = QHBoxLayout()
+		hh.addWidget(examweight_label)
+		hh.addWidget(self.r_examweight)
+
+		vlayout.addLayout(hh)
 		vlayout.addWidget(questiontype)
 
 		for hlayout in hlayouts:
@@ -912,12 +959,49 @@ class studentScoreManage(QMainWindow):
 		    item.setText(0, c)
 		    item.setCheckState(0, Qt.Unchecked)
 		    self.subjectItems.append(item)
-
+		self.classItems = []
 		self.tree.expandAll() 
 		self.tree.setStyleSheet('border:2px solid red;color:red;text-align:center;')  
 
-	def refreshLeftFunc(self):
-		pass
+	def watch_total_score(self):
+		if self.COURSEID == None or self.CLASSID == None:
+			QMessageBox.warning(self,'错误操作','请先选择课程、班级',QMessageBox.Ok)
+			return
+		all_exam_name, examName_to_id = self.database.getExamName(courseid = self.COURSEID,classid = self.CLASSID)
+		all_students = self.database.student_table.find(classid = self.CLASSID, course_id = self.COURSEID)
+		print(all_students)
+		print(all_exam_name)
+		all_exam_score = {}
+		for student in all_students:
+			all_score = []
+			for exam in all_exam_name:
+				result = {}
+				exam_detail = self.database.exam_table.find(id=examName_to_id[exam])
+				result['question_weights'] = exam_detail[0][-1]
+				result['question_type'] = exam_detail[0][-2]
+				result['exam_weight'] = exam_detail[0][-3]
+				score = self.database.escore_table.find(
+					examid = examName_to_id[exam], 
+					studentid = student[0],
+					classid = self.CLASSID,
+					courseid = self.COURSEID
+					)
+				if score != []:
+					result['score_json'] = score[0][-1]
+				else:
+					result['score_json'] = ''
+				all_score.append(result)
+
+			all_exam_score[student] = all_score
+
+		print(all_exam_score)
+		headers = ['姓名','学号']
+		headers.extend(all_exam_name)
+		datas = []
+		return
+		for student,score in all_exam_score.items():
+			weights = list(map(int,))
+
 
 	def closeEvent(self,event):
 		print('close')

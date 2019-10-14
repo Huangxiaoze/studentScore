@@ -20,6 +20,7 @@ class DataBase(QTableView):
         self.exam_table = examTable.Exam(self.model)
         self.question_table = questionTable.Question(self.model)
         self.createTable()
+        print(len(self.escore_table.find(classid = 7, courseid = 9, examid = 12)))
 
     def getCourseName(self):
         name = []
@@ -65,7 +66,6 @@ class DataBase(QTableView):
         for question in all_question:
             name.append(question[-1])
             name_to_id[question[-1]] = question[0]
-        print(name,name_to_id)
         return name, name_to_id       
         
 
