@@ -1,13 +1,13 @@
 import xlrd
 
-def loadStudent(filepath):
+def loadStudent(filepath,numbcol, namecol):
 	workbook = xlrd.open_workbook(filepath)
 	sheets = workbook.sheet_names()
 	worksheet = workbook.sheet_by_name(sheets[0])
 	data = []
 	for x in range(0, worksheet.nrows):
 		row = worksheet.row(x)
-		data.append((str(row[0].value).replace('.',''),row[1].value))
+		data.append((str(row[numbcol-1].value).replace('.',''),row[namecol-1].value))
 	return data
 
 def loadScore(filepath,args:list):

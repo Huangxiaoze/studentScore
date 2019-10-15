@@ -6,13 +6,18 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import * 
 import json
 from db import DataBase
-import loadData as LD
+import processData 
 
 class loadQSS:
 	@staticmethod
 	def getStyleSheet(file):
 		with open(file,'r') as f:
 			return f.read()
+class ScoreTable(QTableWidget):
+	sortSignal = pyqtSignal(int)
+	def __init__(self):
+		super().__init__()
+		self.horizontalHeader().connect(self.sortTable)
 
 class studentScoreManage(QMainWindow):
 	def __init__(self):
@@ -104,7 +109,7 @@ class studentScoreManage(QMainWindow):
 
 
 	def addQuestion(self):
-		widget = QDialog()
+		widget = QDialog(self)
 		descLabel = QLabel('题型名称：')
 		self.descLineEdit = QLineEdit()
 		save_button = QPushButton('保存')
@@ -230,7 +235,7 @@ class studentScoreManage(QMainWindow):
 		combox.addItems(all_class)
 
 	def createNewExam(self):
-		widget = QDialog()
+		widget = QDialog(self)
 		courselabel = QLabel('课程')
 		classlabel = QLabel('班级')
 		examName = QLabel('考试类型')
@@ -322,7 +327,7 @@ class studentScoreManage(QMainWindow):
 		print("hello")
 
 	def loadStudentData(self):
-		widget = QDialog()
+		widget = QDialog(self)
 		courselabel = QLabel('请选择课程')
 		classlabel = QLabel('请选择班级')
 		filepathlabel = QLabel("请输入文件路径")
@@ -341,6 +346,15 @@ class studentScoreManage(QMainWindow):
 		load = QPushButton('导入')
 		load.clicked.connect(self.loadStudent)
 
+		self.stunumber_spinbox = QSpinBox()
+		self.stuname_spinbox = QSpinBox()
+		self.stunumber_spinbox.setRange(1,100)
+		self.stuname_spinbox.setRange(1,100)
+		self.stunumber_spinbox.setValue(1)
+		self.stuname_spinbox.setValue(2)
+
+
+		#布局
 		hlayout1 = QHBoxLayout()
 		hlayout1.addWidget(courselabel)
 		hlayout1.addWidget(self.l_courseCombox)
@@ -354,10 +368,22 @@ class studentScoreManage(QMainWindow):
 		hlayout3.addWidget(self.filepath)
 		hlayout3.addWidget(filepathbutton)
 
+		hlayout4 = QHBoxLayout()
+		hlayout4.addWidget(QLabel("学号："))
+		hlayout4.addWidget(self.stunumber_spinbox)
+
+		hlayout5 = QHBoxLayout()
+		hlayout5.addWidget(QLabel('姓名：'))
+		hlayout5.addWidget(self.stuname_spinbox)
+
 		vlayout = QVBoxLayout()
 		vlayout.addLayout(hlayout1)
 		vlayout.addLayout(hlayout2)
 		vlayout.addLayout(hlayout3)
+		vlayout.addWidget(QLabel('学生信息所在的列数：'))
+		vlayout.addLayout(hlayout4)
+		vlayout.addLayout(hlayout5)
+
 		vlayout.addWidget(load)
 
 		widget.setLayout(vlayout)
@@ -384,13 +410,13 @@ class studentScoreManage(QMainWindow):
 
 		x, coursename_to_id = self.database.getCourseName()
 		y, classname_to_id = self.database.getClassName()
-		students = LD.loadStudent(filepath)
+		students = processData.loadStudent(filepath,self.stunumber_spinbox.value(),self.stuname_spinbox.value())
 
 		courseid = coursename_to_id[courseName]
 		classid = classname_to_id[className]
 
-		# for student in students:
-		# 	self.database.student_table.insert(student[0], student[1], classid, courseid)
+		for student in students:
+			self.database.student_table.insert(student[0], student[1], classid, courseid)
 
 		headers = ['学号','姓名']
 		datas = []
@@ -401,7 +427,7 @@ class studentScoreManage(QMainWindow):
 		QMessageBox.information(self,'导入成功，功能关闭','!!!')
 
 	def createClass(self):
-		widget = QDialog()
+		widget = QDialog(self)
 		self.c_courseCombox = QComboBox()
 
 		subjectlist, self.c_coursename_to_id = self.database.getCourseName()
@@ -444,7 +470,7 @@ class studentScoreManage(QMainWindow):
 			self.loadStudentData()
 
 	def createCourse(self):
-		widget = QDialog()
+		widget = QDialog(self)
 		self.courseNumber = QLineEdit(widget)
 		courseNumber_label = QLabel('请输入课程编号',widget)
 		self.courseName = QLineEdit(widget)
@@ -491,6 +517,12 @@ class studentScoreManage(QMainWindow):
 		label.setStyleSheet("border:2px solid red;padding:20px;color:red;width:100px;height:200px;")
 		self.initLeftFunc()
 
+	def sortTable(self):
+		row = self.MyTable.currentRow()
+		col = self.MyTable.currentColumn()
+		print(self.MyTable.item(0,1).text())
+		print(self.MyTable.currentRow())
+		print(self.MyTable.currentItem())
 	def initmidwidget(self):
 
 		topTooBar = QLabel(self.midwidget)
@@ -512,9 +544,12 @@ class studentScoreManage(QMainWindow):
 		searchbutton.clicked.connect(self.search)
 
 		self.MyTable = QTableWidget(self.midwidget)
+
+		self.MyTable.itemSelectionChanged.connect(self.sortTable)
+
 		self.MyTable.move(10,90)
 		self.MyTable.resize(900,340)
-		self.MyTable.setStyleSheet('text-align:center;background:{}'.format(self.setting['background-color']))
+		#self.MyTable.setStyleSheet('text-align:center;background:{}'.format(self.setting['background-color']))
 		headers = ['学号','姓名','选择题','主观题','客观题','附加题','总成绩']
 		self.showScoreTable(headers,self.database.student_table.find())
 
@@ -529,8 +564,11 @@ class studentScoreManage(QMainWindow):
 	def showScoreTable(self,headers:'表头数据 list', datas):#显示成绩表
 		if datas!=[] and len(headers)<len(datas[0]):
 			headers.append('成绩')
+		self.MyTable.clear()
+		self.TABLE_HEADERS = headers
+		self.TABLE_DATA = datas
 		self.MyTable.setColumnCount(len(headers))
-		self.MyTable.setRowCount(len(datas))
+		self.MyTable.setRowCount(len(datas)+10)
 		self.MyTable.setHorizontalHeaderLabels(headers)
 		self.display_exam(datas)
 		QApplication.processEvents()
@@ -539,7 +577,9 @@ class studentScoreManage(QMainWindow):
 	def display_exam(self,datas):
 		for i, item in enumerate(datas):
 			for j, data in enumerate(item):
-				self.MyTable.setItem(i,j,QTableWidgetItem(str(data)))
+				node = QTableWidgetItem(str(data))
+				node.setTextAlignment(Qt.AlignCenter)
+				self.MyTable.setItem(i,j,node)
 
 	def search(self):
 		print('hello')
@@ -630,7 +670,7 @@ class studentScoreManage(QMainWindow):
 		cols = []
 		for c in self.weights:
 			cols.append(int(c.value()))
-		datas = LD.loadScore(self.FILEPATH,cols)
+		datas = processData.loadScore(self.FILEPATH,cols)
 		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
 
 		d_students = [(n[cols[0]-1],n[cols[1]-1]) for n in datas]
@@ -680,7 +720,7 @@ class studentScoreManage(QMainWindow):
 		QMessageBox.information(self,'操作结果','导入成功',QMessageBox.Ok)
 
 	def loadData(self):
-		widget = QDialog()
+		widget = QDialog(self)
 		widget.setWindowTitle('导入到')
 		courselabel = QLabel('课程')
 		classlabel = QLabel('班级')
@@ -969,9 +1009,8 @@ class studentScoreManage(QMainWindow):
 			return
 		all_exam_name, examName_to_id = self.database.getExamName(courseid = self.COURSEID,classid = self.CLASSID)
 		all_students = self.database.student_table.find(classid = self.CLASSID, course_id = self.COURSEID)
-		print(all_students)
-		print(all_exam_name)
 		all_exam_score = {}
+		exam_weights = {}
 		for student in all_students:
 			all_score = []
 			for exam in all_exam_name:
@@ -979,6 +1018,7 @@ class studentScoreManage(QMainWindow):
 				exam_detail = self.database.exam_table.find(id=examName_to_id[exam])
 				result['question_weights'] = exam_detail[0][-1]
 				result['question_type'] = exam_detail[0][-2]
+				exam_weights[exam] = exam_detail[0][-3]
 				result['exam_weight'] = exam_detail[0][-3]
 				score = self.database.escore_table.find(
 					examid = examName_to_id[exam], 
@@ -994,13 +1034,82 @@ class studentScoreManage(QMainWindow):
 
 			all_exam_score[student] = all_score
 
-		print(all_exam_score)
 		headers = ['姓名','学号']
 		headers.extend(all_exam_name)
 		datas = []
-		return
-		for student,score in all_exam_score.items():
-			weights = list(map(int,))
+		
+		for student,exam_list in all_exam_score.items():
+			scores = []
+			total = 0
+			for score in exam_list:
+				question_weights = list(map(int, score['question_weights'].split('-')))
+				question_id = score['question_type'].split('-')
+				score_json = json.loads(score['score_json'])
+				sum = 0
+				for i,qid in enumerate(question_id):
+					sum += float(score_json[qid])*question_weights[i]/100
+				scores.append(sum)
+				total+= sum*score['exam_weight']/100
+			s_m = [student[1],student[2]]
+			s_m.extend(scores)
+			s_m.append(total)
+			datas.append(s_m)
+		self.showScoreTable(headers,datas)
+		self.setRightWindow(all_exam_name,exam_weights)
+
+	def setRightWindow(self,all_exam_name, exam_weights):
+		print(all_exam_name,exam_weights)
+		if self.r_widget != None:
+			self.r_widget.setVisible(False)
+
+		courseName = self.database.course_table.find(id=self.COURSEID)[0][-1]
+		className = self.database.class_table.find(id = self.CLASSID)[0][1]
+		self.r_widget = QWidget(self.rightwidget)
+
+		hlayout1 = QHBoxLayout()
+		hlayout1.addWidget(QLabel('课程:'))
+		hlayout1.addWidget(QLabel(courseName))
+
+		hlayout2 = QHBoxLayout()
+		hlayout2.addWidget(QLabel('班级:'))
+		hlayout2.addWidget(QLabel(className))
+
+		vlayout = QVBoxLayout()
+		vlayout.addLayout(hlayout1)
+		vlayout.addLayout(hlayout2)
+
+		vlayout.addWidget(QLabel('考试类型及考试在总评中的比重：'))
+
+		self.spinboxs = []
+
+		for examName in all_exam_name:
+			spinbox = QSpinBox()
+			spinbox.setRange(0,100)
+			spinbox.setValue(exam_weights[examName])
+			self.spinboxs.append(spinbox)
+
+			hlayout = QHBoxLayout()
+			hlayout.addWidget(QLabel(examName))
+			hlayout.addWidget(spinbox)
+			vlayout.addLayout(hlayout)
+
+		save_button = QPushButton('保存修改')
+		save_button.clicked.connect(lambda:self.changeExam_weight(self.r_widget,all_exam_name))
+		vlayout.addWidget(save_button)
+
+		self.r_widget.setLayout(vlayout)
+		self.r_widget.move(0,40)
+		self.r_widget.show()
+
+	def changeExam_weight(self,parent,all_exam_name):
+		select = QMessageBox.information(parent,"更改题型权重",'确认更改？',QMessageBox.Ok|QMessageBox.Cancel)
+		if select == QMessageBox.Cancel:
+			return
+		weights = [w.value() for w in self.spinboxs]
+		x, examName_to_id = self.database.getExamName(self.COURSEID, self.CLASSID)
+		for i,examName in enumerate(all_exam_name):
+			self.database.exam_table.update(id = examName_to_id[examName], exam_weight=weights[i])
+		self.watch_total_score()
 
 
 	def closeEvent(self,event):
