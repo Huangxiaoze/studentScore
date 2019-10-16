@@ -29,7 +29,6 @@ class studentScoreManage(QMainWindow):
 	def initDataBase(self):
 		self.database = DataBase()
 
-
 	def initWindow(self):
 		self.resize(1620,650)
 		self.setWindowIcon(QIcon('./windowIcon.png'))
@@ -548,18 +547,9 @@ class studentScoreManage(QMainWindow):
 		self.MyTable.itemSelectionChanged.connect(self.sortTable)
 
 		self.MyTable.move(10,90)
-		self.MyTable.resize(900,340)
 		#self.MyTable.setStyleSheet('text-align:center;background:{}'.format(self.setting['background-color']))
 		headers = ['学号','姓名','选择题','主观题','客观题','附加题','总成绩']
 		self.showScoreTable(headers,self.database.student_table.find())
-
-
-		bottomtoobar = QLabel(self.midwidget)
-		bottomtoobar.move(0,520)
-		bottomtoobar.resize(920,80)
-		bottomtoobar.setStyleSheet("border:2px solid red;padding:20px;color:red;text-align:center;")
-		save = QPushButton('保存修改',self.midwidget)
-		save.move(450,530)
 
 	def showScoreTable(self,headers:'表头数据 list', datas):#显示成绩表
 		if datas!=[] and len(headers)<len(datas[0]):
@@ -802,8 +792,15 @@ class studentScoreManage(QMainWindow):
 		widget.exec_()
 
 	def dumpData(self):
-		dirselect = QFileDialog(self,'请选择导出的目录')
-		dirselect.exec_()
+		filepath, filetype = QFileDialog.getSaveFileName(self,
+			'请选择导出的目录',
+			"./dump",
+			"""
+			Microsoft Excel 文件(*.xlsx);;
+			Microsoft Excel 97-2003 文件(*.xls)
+			""")
+		# with open(filepath,'w+','utf-8') as f:
+		# 	pass
 
 	def createRightMenu(self):
 		menu = QMenu(self)
@@ -1118,6 +1115,7 @@ class studentScoreManage(QMainWindow):
 	def resizeEvent(self,event):
 		print(event)
 		self.splitter.resize(self.width(),self.height()-50)
+		self.MyTable.resize(900,self.height()-90)
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
