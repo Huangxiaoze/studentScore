@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import *
 import json
 from db import DataBase
 import processData 
+import time
 
 class loadQSS:
 	@staticmethod
@@ -21,10 +22,15 @@ class ScoreTable(QTableWidget):
 
 class studentScoreManage(QMainWindow):
 	def __init__(self):
+		splash = QSplashScreen(QPixmap("windowIcon.png"))
+		splash.showMessage("加载中... ", Qt.AlignHCenter | Qt.AlignBottom, Qt.black)
+		splash.show()  
 		super().__init__()
 		self.initDataBase()
 		self.initWindow()
+		time.sleep(2)
 		self.show()
+		splash.finish(self)
 
 	def initDataBase(self):
 		self.database = DataBase()
@@ -80,6 +86,7 @@ class studentScoreManage(QMainWindow):
 		self.newclass_action = QAction('班级')
 		self.load_studentData_action = QAction('导入学生',self)
 		self.newQuestion_action = QAction('题型',self)
+
 
 
 
@@ -331,8 +338,9 @@ class studentScoreManage(QMainWindow):
 		classlabel = QLabel('请选择班级')
 		filepathlabel = QLabel("请输入文件路径")
 		filepathbutton = QPushButton('点击选择文件')
-		self.filepath = QLineEdit()
-		filepathbutton.clicked.connect(lambda:self.selectFile(widget))
+
+		self.loadS_filepath = QLineEdit()
+		filepathbutton.clicked.connect(lambda:self.selectFile(widget,self.loadS_filepath))
 
 		self.l_courseCombox = QComboBox()
 		self.l_classCombox = QComboBox()
@@ -364,7 +372,7 @@ class studentScoreManage(QMainWindow):
 
 		hlayout3 = QHBoxLayout()
 		hlayout3.addWidget(filepathlabel)
-		hlayout3.addWidget(self.filepath)
+		hlayout3.addWidget(self.loadS_filepath)
 		hlayout3.addWidget(filepathbutton)
 
 		hlayout4 = QHBoxLayout()
@@ -388,21 +396,19 @@ class studentScoreManage(QMainWindow):
 		widget.setLayout(vlayout)
 		widget.exec_()
 
-	def selectFile(self,parent):
+	def selectFile(self,parent, lineEdit):
 		dig=QFileDialog(parent)
 		if dig.exec_():
 			#接受选中文件的路径，默认为列表
 			filenames=dig.selectedFiles()
-			self.FILEPATH = filenames[0]
-			self.filepath.setText(self.FILEPATH)
-
+			lineEdit.setText(filenames[0])
 			#列表中的第一个元素即是文件路径，以只读的方式打开文件
 			
 
 	def loadStudent(self): #如果已经存在了，还要导入会造成数据重复，还没写这个逻辑
 		courseName = self.l_courseCombox.currentText()
 		className = self.l_classCombox.currentText()
-		filepath = self.filepath.text()
+		filepath = self.loadS_filepath.text()
 		if courseName == '' or className == '' or filepath == '':
 			QMessageBox.warning(self,'操作错误','请把信息填完整')
 			return
@@ -544,11 +550,11 @@ class studentScoreManage(QMainWindow):
 
 		self.MyTable = QTableWidget(self.midwidget)
 
-		self.MyTable.itemSelectionChanged.connect(self.sortTable)
+		#self.MyTable.itemSelectionChanged.connect(self.sortTable)
 
 		self.MyTable.move(10,90)
 		#self.MyTable.setStyleSheet('text-align:center;background:{}'.format(self.setting['background-color']))
-		headers = ['学号','姓名','选择题','主观题','客观题','附加题','总成绩']
+		headers = ['ID','学号','姓名','班级ID','课程ID']
 		self.showScoreTable(headers,self.database.student_table.find())
 
 	def showScoreTable(self,headers:'表头数据 list', datas):#显示成绩表
@@ -660,7 +666,8 @@ class studentScoreManage(QMainWindow):
 		cols = []
 		for c in self.weights:
 			cols.append(int(c.value()))
-		datas = processData.loadScore(self.FILEPATH,cols)
+		filepath = self.loadscore_filepath.text()
+		datas = processData.loadScore(filepath,cols)
 		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
 
 		d_students = [(n[cols[0]-1],n[cols[1]-1]) for n in datas]
@@ -709,7 +716,8 @@ class studentScoreManage(QMainWindow):
 		self.showScoreTable(headers,s_datas)
 		QMessageBox.information(self,'操作结果','导入成功',QMessageBox.Ok)
 
-	def loadData(self):
+
+	def loadData(self):  #导入学生成绩
 		widget = QDialog(self)
 		widget.setWindowTitle('导入到')
 		courselabel = QLabel('课程')
@@ -718,8 +726,8 @@ class studentScoreManage(QMainWindow):
 
 		filepathlabel = QLabel("请输入文件路径")
 		filepathbutton = QPushButton('点击选择文件')
-		self.filepath = QLineEdit()
-		filepathbutton.clicked.connect(lambda:self.selectFile(widget))
+		self.loadscore_filepath = QLineEdit()
+		filepathbutton.clicked.connect(lambda:self.selectFile(widget,self.loadscore_filepath))
 
 		questiontype = QLabel('题型及导入表格中相应的列数：')
 
@@ -770,7 +778,7 @@ class studentScoreManage(QMainWindow):
 
 		hlayout4 = QHBoxLayout()
 		hlayout4.addWidget(filepathlabel)
-		hlayout4.addWidget(self.filepath)
+		hlayout4.addWidget(self.loadscore_filepath)
 		hlayout4.addWidget(filepathbutton)
 
 		self.question_vlayout = QVBoxLayout()
@@ -784,13 +792,31 @@ class studentScoreManage(QMainWindow):
 		for hlayout in self.hlayouts:
 			self.question_vlayout.addLayout(hlayout)
 
-		save_button = QPushButton('导入')
+		save_button = QPushButton('导入成绩')
 		save_button.clicked.connect(lambda:self.loadScore())
 
 		self.question_vlayout.addWidget(save_button)
 		widget.setLayout(self.question_vlayout)
 		widget.exec_()
 
+	def showDumpData(self):  #选择需要导出的列数，暂时不需要，
+		widget = QDialog(self)
+		widget.setWindowTitle('导出成绩')
+		QLabel('请输入导出目录：')
+		self.dumpData_lineEdit = QLineEdit()
+		selectButton = QPushButton('点击选择')
+
+		QLabel('请选则需要导出的列数据：')
+
+		print(self.TABLE_DATA, self.TABLE_HEADERS)
+
+
+
+
+
+
+
+		widget.exec_()
 	def dumpData(self):
 		filepath, filetype = QFileDialog.getSaveFileName(self,
 			'请选择导出的目录',
@@ -799,6 +825,13 @@ class studentScoreManage(QMainWindow):
 			Microsoft Excel 文件(*.xlsx);;
 			Microsoft Excel 97-2003 文件(*.xls)
 			""")
+
+		success, tip = processData.dumpData(filepath, self.TABLE_HEADERS,self.TABLE_DATA)
+		if success:
+			QMessageBox.information(self,'成功',tip,QMessageBox.Ok)
+		else:
+			QMessageBox.warning(self,'失败',tip,QMessageBox.Ok)
+
 		# with open(filepath,'w+','utf-8') as f:
 		# 	pass
 
@@ -1115,7 +1148,7 @@ class studentScoreManage(QMainWindow):
 	def resizeEvent(self,event):
 		print(event)
 		self.splitter.resize(self.width(),self.height()-50)
-		self.MyTable.resize(900,self.height()-90)
+		self.MyTable.resize(900,self.height()-200)
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
