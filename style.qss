@@ -1,4 +1,6 @@
 QPushButton:hover{color:#EF7F7F;}
+QPushButton{border-radius:6px;border:1px solid black;background:#6D6969;padding:6px;}
 QSplitter:handle{background:#5F88FC;border-radius:5px;border-style:outset;border:solid red 2px;}
 QSplitter{border:5px solid #69F053;}
 QTableWidget{background:#BFB8B8;}
+QWidget{background:#A7A4A4;}

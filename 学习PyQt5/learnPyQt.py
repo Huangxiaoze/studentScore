@@ -1,32 +1,52 @@
-# -*- coding: utf-8 -*-
-from PyQt5 import QtCore, QtGui, QtWidgets
-import time
+import sys
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
  
-class MyWindow(QtWidgets.QPushButton):
  
+class Demo(QWidget):
     def __init__(self):
-        QtWidgets.QPushButton.__init__(self)
-        self.setText("关闭窗口")
-        self.clicked.connect(QtWidgets.qApp.quit)
- 
-    def load_data(self, sp):
-        for i in range(1, 11):              #模拟主程序加载过程 
-            time.sleep(2)                   # 加载数据
-            sp.showMessage("加载... {0}%".format(i * 10), QtCore.Qt.AlignHCenter |QtCore.Qt.AlignBottom, QtCore.Qt.black)
-            QtWidgets.qApp.processEvents()  # 允许主进程处理事件
- 
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    splash = QtWidgets.QSplashScreen(QtGui.QPixmap("windowIcon.png"))
-    splash.showMessage("加载... 0%", QtCore.Qt.AlignHCenter | QtCore.Qt.AlignBottom, QtCore.Qt.black)
-    splash.show()    
-                           # 显示启动界面
-    QtWidgets.qApp.processEvents()          # 处理主进程事件
-    window = MyWindow()
-    window.setWindowTitle("QSplashScreen类使用")
-    window.resize(300, 30)
-    window.load_data(splash)                # 加载数据
-    window.show()
+        super(Demo, self).__init__()
+        self.pic_label = QLabel(self)                                   # 1
+        self.pic_label.setPixmap(QPixmap('images/keyboard.png'))
+        self.pic_label.setAlignment(Qt.AlignCenter)
     
-    splash.finish(window)                   # 隐藏启动界面
+        self.key_label = QLabel('No Key Pressed', self)                 # 2
+        self.key_label.setAlignment(Qt.AlignCenter)
+ 
+        self.v_layout = QVBoxLayout()
+        self.v_layout.addWidget(self.pic_label)
+        self.v_layout.addWidget(self.key_label)
+        self.setLayout(self.v_layout)
+    
+    def keyPressEvent(self, QKeyEvent):                                 # 3
+        if QKeyEvent.key() == Qt.Key_Up:
+            self.pic_label.setPixmap(QPixmap('images/up.png'))
+            self.key_label.setText('Key Up Pressed')
+        elif QKeyEvent.key() == Qt.Key_Down:
+            self.pic_label.setPixmap(QPixmap('images/down.png'))
+            self.key_label.setText('Key Down Pressed')
+        elif QKeyEvent.key() == Qt.Key_Left:
+            self.pic_label.setPixmap(QPixmap('images/left.png'))
+            self.key_label.setText('Key Left Pressed')
+        elif QKeyEvent.key() == Qt.Key_Right:
+            self.pic_label.setPixmap(QPixmap('images/right.png'))
+            self.key_label.setText('Key Right Pressed')
+        elif QKeyEvent.key() == Qt.Key_Control:
+            print("Ctrl")
+        if (QKeyEvent.key() == Qt.Key_P):
+            if QApplication.keyboardModifiers() == Qt.ShiftModifier:
+                print("shift + p")
+            else :
+                print("p")
+    
+    def keyReleaseEvent(self, QKeyEvent):                               # 4
+        self.pic_label.setPixmap(QPixmap('images/keyboard.png'))
+        self.key_label.setText('Key Released')
+ 
+ 
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    demo = Demo()
+    demo.show()
+    sys.exit(app.exec_())

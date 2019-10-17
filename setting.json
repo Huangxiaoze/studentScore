@@ -1,5 +1,6 @@
 {
 	"background-color":"#C5F9F6",
 	"width":1000,
-	"height":600
+	"height":600,
+	"table_addRow":20
 }
