@@ -1,8 +1,16 @@
 import xlrd
 import xlwt
 import re
+def isInteger(word):#判断是否整数，用于判断学号
+	word = str(word)
+	num_pattern = r'^\d+$' #
+	if re.match(num_pattern, word):
+		return True
+	else:
+		return False
 
 def isNum(word):#判断是否是数字
+	word = str(word)
 	num_pattern = r'^[+-]?\d+(\.\d+)?((e|E)[+-]?\d+)?$' #
 	if re.match(num_pattern, word):
 		return True

@@ -2,5 +2,8 @@
 	"background-color":"#C5F9F6",
 	"width":1000,
 	"height":600,
-	"table_addRow":20
+	"table_addRow":20,
+	"cell_data_error":"#42FBDF",
+	"cell_data_modify":"#FFFBC1",
+	"table_delRow":"#FF0101"
 }
