@@ -65,14 +65,21 @@ class EScore(QTableView):
             sql = "update escore set {0}='{1}' where id={2}".format(key,value,id)
             model.exec_(sql)
 
-    def delete(self,id):
+    def delete(self,**args): # id or studentid + courseid + examid+ classid
+        condition = []
+        for key, value in args.items():   
+            condition.append("{0}={1}".format(key,value))
+        And = " and ".join(condition)
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
-        sql = "delete from escore where id={}".format(id)
-        model.exec_(sql)
+        sql = "delete from escore where {}".format(And)
+        print(sql)
+        res = model.exec_(sql)
+        return res
 
     def insert(self, examid,studentid,classid,courseid,score_json):
-        #print(type(score_json))
+        print(type(score_json))
+        print(examid,studentid,classid,courseid,score_json)
         try:
             model = QSqlQuery()
             model.exec_('PRAGMA foreign_keys = ON;')
@@ -81,6 +88,7 @@ class EScore(QTableView):
             values({0},{1},{2},{3},'{4}')
             """.format(examid,studentid,classid,courseid,score_json)
             res = model.exec_(sql)
+            print('插入成绩结果：',res)
             #print(res)
         except e:
             #print(e)

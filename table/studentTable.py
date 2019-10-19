@@ -38,8 +38,11 @@ class Student(QTableView):
     def find(self,**args):
         condition = []
         print(args)
-        for key, value in args.items():   
-            condition.append("{0}={1}".format(key,value))
+        for key, value in args.items():  
+            if key in ['id', 'classid','course_id']: 
+                condition.append("{0}={1}".format(key,value))
+            else:
+                condition.append("{0}='{1}'".format(key,value))
         And = " and ".join(condition)
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
@@ -68,8 +71,8 @@ class Student(QTableView):
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
         sql = "delete from student where id={}".format(id)
-        model.exec_(sql)
-
+        res = model.exec_(sql)
+        return res
     def insert(self, number,name,classid,course_id):
         try:
             model = QSqlQuery()

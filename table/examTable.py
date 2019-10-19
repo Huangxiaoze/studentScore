@@ -22,7 +22,7 @@ class Exam(QTableView):
                 classid int,
                 courseid int,
                 exam_weight int,
-                question_type varchar(50),
+                question_type text,
                 weight_set text,
                 constraint classid foreign key(classid) references class(id),
                 constraint courseid foreign key(courseid) references course(id)
@@ -40,8 +40,11 @@ class Exam(QTableView):
 
     def find(self,**args):
         condition = []
-        for key, value in args.items():   
-            condition.append("{0}='{1}'".format(key,value))
+        for key, value in args.items(): 
+            if key not in ['id','classid','courseid','exam_weight']:  
+                condition.append("{0}='{1}'".format(key,value))
+            else:
+                condition.append("{0}={1}".format(key,value))
         And = " and ".join(condition)
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
