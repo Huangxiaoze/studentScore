@@ -1,52 +1,55 @@
-import sys
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
- 
- 
-class Demo(QWidget):
-    def __init__(self):
-        super(Demo, self).__init__()
-        self.pic_label = QLabel(self)                                   # 1
-        self.pic_label.setPixmap(QPixmap('images/keyboard.png'))
-        self.pic_label.setAlignment(Qt.AlignCenter)
-    
-        self.key_label = QLabel('No Key Pressed', self)                 # 2
-        self.key_label.setAlignment(Qt.AlignCenter)
- 
-        self.v_layout = QVBoxLayout()
-        self.v_layout.addWidget(self.pic_label)
-        self.v_layout.addWidget(self.key_label)
-        self.setLayout(self.v_layout)
-    
-    def keyPressEvent(self, QKeyEvent):                                 # 3
-        if QKeyEvent.key() == Qt.Key_Up:
-            self.pic_label.setPixmap(QPixmap('images/up.png'))
-            self.key_label.setText('Key Up Pressed')
-        elif QKeyEvent.key() == Qt.Key_Down:
-            self.pic_label.setPixmap(QPixmap('images/down.png'))
-            self.key_label.setText('Key Down Pressed')
-        elif QKeyEvent.key() == Qt.Key_Left:
-            self.pic_label.setPixmap(QPixmap('images/left.png'))
-            self.key_label.setText('Key Left Pressed')
-        elif QKeyEvent.key() == Qt.Key_Right:
-            self.pic_label.setPixmap(QPixmap('images/right.png'))
-            self.key_label.setText('Key Right Pressed')
-        elif QKeyEvent.key() == Qt.Key_Control:
-            print("Ctrl")
-        if (QKeyEvent.key() == Qt.Key_P):
-            if QApplication.keyboardModifiers() == Qt.ShiftModifier:
-                print("shift + p")
-            else :
-                print("p")
-    
-    def keyReleaseEvent(self, QKeyEvent):                               # 4
-        self.pic_label.setPixmap(QPixmap('images/keyboard.png'))
-        self.key_label.setText('Key Released')
- 
- 
+
+from PyQt5.QtWidgets import*
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtPrintSupport import *
+class Window(QWidget):
+    def __init__(self, rows, columns):
+        QWidget.__init__(self)
+        self.table = QTableView(self)
+        model =  QStandardItemModel(rows, columns, self.table)
+        for row in range(rows):
+            for column in range(columns):
+                item = QStandardItem('(%d, %d)' % (row, column))
+                item.setTextAlignment(Qt.AlignCenter)
+                model.setItem(row, column, item)
+        self.table.setModel(model)
+        self.buttonPrint = QPushButton('Print', self)
+        self.buttonPrint.clicked.connect(self.handlePrint)
+        self.buttonPreview =QPushButton('Preview', self)
+        self.buttonPreview.clicked.connect(self.handlePreview)
+        layout =QGridLayout(self)
+        layout.addWidget(self.table, 0, 0, 1, 2)
+        layout.addWidget(self.buttonPrint, 1, 0)
+        layout.addWidget(self.buttonPreview, 1, 1)
+
+    def handlePrint(self):
+        dialog = QPrintDialog()
+        if dialog.exec_() == QDialog.Accepted:
+            self.handlePaintRequest(dialog.printer())
+
+    def handlePreview(self):
+        dialog = QPrintPreviewDialog()
+        dialog.paintRequested.connect(self.handlePaintRequest)
+        dialog.exec_()
+
+    def handlePaintRequest(self, printer):
+        document = QTextDocument()
+        cursor = QTextCursor(document)
+        model = self.table.model()
+        table = cursor.insertTable(
+            model.rowCount(), model.columnCount())
+        for row in range(table.rows()):
+            for column in range(table.columns()):
+                cursor.insertText(model.item(row, column).text())
+                cursor.movePosition(QTextCursor.NextCell)
+        document.print_(printer)
+
 if __name__ == '__main__':
+
+    import sys
     app = QApplication(sys.argv)
-    demo = Demo()
-    demo.show()
+    window = Window(25, 2)
+    window.resize(300, 400)
+    window.show()
     sys.exit(app.exec_())

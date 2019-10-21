@@ -4,6 +4,7 @@ import sys
 from PyQt5.QtGui  import *
 from PyQt5.QtCore import * 
 from PyQt5.QtWidgets import * 
+from PyQt5.QtPrintSupport import QPrinter, QPrintPreviewDialog 
 import json
 from db import DataBase
 import processData 
@@ -20,11 +21,6 @@ class loadQSS:
 	def getStyleSheet(file):
 		with open(file,'r') as f:
 			return f.read()
-class ScoreTable(QTableWidget):
-	sortSignal = pyqtSignal(int)
-	def __init__(self):
-		super().__init__()
-		self.horizontalHeader().connect(self.sortTable)
 
 class studentScoreManage(QMainWindow):
 	def __init__(self):
@@ -92,6 +88,7 @@ class studentScoreManage(QMainWindow):
 		self.newclass_action = QAction('班级')
 		self.load_studentData_action = QAction('导入学生',self)
 		self.newQuestion_action = QAction('题型',self)
+		self.print_action = QAction('打印',self)
 
 
 		self.newExam_action.setIcon(QIcon(r'./images/exam1.ico')) #设置图标
@@ -109,6 +106,7 @@ class studentScoreManage(QMainWindow):
 		self.load_studentData_action.triggered.connect(self.loadStudentData)
 		self.newExam_action.triggered.connect(self.createNewExam)
 		self.newQuestion_action.triggered.connect(self.addQuestion)
+		self.print_action.triggered.connect(self.printScoreTable)
 
 
 		self.new_toolbar.addAction(self.newExam_action)		# 将动作添加到工具栏
@@ -122,6 +120,7 @@ class studentScoreManage(QMainWindow):
 
 		self.edit_toolbar.addAction(self.setweight_action)
 		self.edit_toolbar.addAction(self.view_action)
+		self.edit_toolbar.addAction(self.print_action)
 
 
 		self.build_menu.addAction(self.newcourse_action)			# 将动作添加到菜单栏
@@ -129,7 +128,24 @@ class studentScoreManage(QMainWindow):
 		self.build_menu.addAction(self.newQuestion_action)
 		self.load_menu.addAction(self.load_studentData_action)
 		self.load_menu.addAction(self.load_action)
-
+	def printScoreTable(self):
+		print('haha')
+		self.printer = QPrinter(QPrinter.HighResolution)
+		preview = QPrintPreviewDialog(self.printer, self)
+		preview.paintRequested.connect(self.PlotPic)
+		preview.exec_()
+	def PlotPic(self):
+		painter = QPainter(self.printer)
+		# QRect(0,0) 中（0,0）是窗口坐标
+		image = self.grab(QRect(QPoint(0, 0),QSize(900,1000) ) )  # /* 绘制窗口至画布 */
+		# QRect
+		rect = painter.viewport()
+		# QSize
+		size = image.size();
+		size.scale(rect.size(), Qt.KeepAspectRatio)  # //此处保证图片显示完整
+		painter.setViewport(rect.x(), rect.y(), size.width(), size.height())
+		painter.setWindow(image.rect())
+		painter.drawPixmap(0, 0, image); 
 
 	def addQuestion(self):
 		widget = QDialog(self)
@@ -228,11 +244,12 @@ class studentScoreManage(QMainWindow):
 			course_id=int(args['courseid'])
 			)
 		datas = []
-		student_id = []
+		student_id = {}
 		for student in students:
 			id_ = student[0]
 			name = student[2]
 			number = student[1]
+			student_id[number] = id_
 			score = self.database.escore_table.find(
 					examid=examid,
 					studentid=int(student[0]),
@@ -249,9 +266,20 @@ class studentScoreManage(QMainWindow):
 					mark+=Decimal(str(score_data[qname]))*weight_set[i]/100
 				res.append(str(mark))
 				datas.append(res)
-				student_id.append(id_)
 
-		return headers,datas,weight_set, tuple(student_id)
+		if 'sort_col' not in args.keys():
+			args['sort_col'] = 0
+		if 'reverse' not in args.keys():
+			args['reverse'] = False
+
+		if 'sort_col' in args.keys():
+			if args['sort_col'] == 0:
+				datas = sorted(datas,key = lambda record:int(record[args['sort_col']]),reverse= args['reverse'])
+			elif args['sort_col']==1:
+				datas = sorted(datas,key = lambda record:record[args['sort_col']],reverse= args['reverse'])
+			else:
+				datas = sorted(datas,key = lambda record:float(record[args['sort_col']]),reverse= args['reverse'])
+		return headers,datas,weight_set, student_id
 
 	def setGetClass(self,parent,combox):
 		courseid = self.createclass_name_to_id[parent.currentText()]
@@ -352,6 +380,7 @@ class studentScoreManage(QMainWindow):
 
 	def loadStudentData(self):
 		widget = QDialog(self)
+		widget.setWindowTitle('导入学生')
 		courselabel = QLabel('请选择课程')
 		classlabel = QLabel('请选择班级')
 		filepathlabel = QLabel("请输入文件路径")
@@ -540,13 +569,6 @@ class studentScoreManage(QMainWindow):
 		label.setStyleSheet("border:2px solid red;padding:20px;color:red;width:100px;height:200px;")
 		self.initLeftFunc()
 
-	def sortTable(self):
-		row = self.MyTable.currentRow()
-		col = self.MyTable.currentColumn()
-		print(self.MyTable.item(0,1).text())
-		print(self.MyTable.currentRow())
-		print(self.MyTable.currentItem())
-
 	def modifyScore(self): #修改成绩 可以知道，在changeRow中记录为True的行必定发生了改变
 		modify = defaultdict(list)
 		add = defaultdict(list)
@@ -624,18 +646,18 @@ class studentScoreManage(QMainWindow):
 			print('删除的行：', del_row)
 			print(self.TABLE_DATA)
 			print(self.STUDENT_ID)
-
 			for row, modify_data in modify.items():
+				number = self.TABLE_DATA[row][0]
 				if (row in cover_row) and (row not in del_row): # 覆盖操作定义为，将该名学生从该课程该班级中删除，并删除其成绩，然后根据数据，添加新的学生和新的成绩
 					print('执行覆盖操作：',modify_data)  #覆盖操作包括 删除和新添加，
 					#由于主外键的约束，需要将先将该学生的所有考试成绩记录删除，才可以在学生表删除该学生记录
 					res = self.database.escore_table.delete(
-							studentid= self.STUDENT_ID[row],
+							studentid= self.STUDENT_ID[number],
 							classid=self.CLASSID,
 							courseid=self.COURSEID
 						)
 					print('删除考试成绩操作结果：',res)
-					res = self.database.student_table.delete(id=self.STUDENT_ID[row])
+					res = self.database.student_table.delete(id=self.STUDENT_ID[number])
 
 					# 添加新数据
 					number = modify_data[0]
@@ -662,14 +684,12 @@ class studentScoreManage(QMainWindow):
 							courseid = self.COURSEID,
 							score_json = json.dumps(score)
 						)
-					print(score)
-
 
 				elif (row in cover_row) and (row in del_row): # 此处的删除操作仅仅是将该学生的成绩记录删除，并没有将其从该班级和该课程中删除
 					print('执行删除操作：',modify_data)  #删除即可,注意，删除该学生成绩不应该删除该名学生？
 					res = self.database.escore_table.delete(
 							examid=self.EXAMID, 
-							studentid= self.STUDENT_ID[row],
+							studentid= self.STUDENT_ID[number],
 							classid=self.CLASSID,
 							courseid=self.COURSEID
 						)
@@ -750,7 +770,7 @@ class studentScoreManage(QMainWindow):
 						self.MyTable.item(row,col_).setBackground(QBrush(QColor(self.setting['cell_data_error'])))
 					else:														# 数据正确，计算总成绩
 						total_is_valid = True
-						total += Decimal(str(self.MyTable.item(row,col_).text()))*self.TABLE_QUESTION_WEIGHT[col_-2]/100
+						total = Decimal(str(total)) + Decimal(str(self.MyTable.item(row,col_).text()))*self.TABLE_QUESTION_WEIGHT[col_-2]/100
 						self.MyTable.item(row,col_).setBackground(QBrush(QColor(self.setting['cell_data_modify'])))
 				elif col_== 0:#修改学号
 					print('modify stunumbr')
@@ -769,13 +789,27 @@ class studentScoreManage(QMainWindow):
 		self.IS_USER_CHANGEITEM = True
 
 
-	def clickTableHeader(self):
-		print("hahahaha")
-		print(self.MyTable.currentColumn())
+	def clickTableHeader(self): # 目前只是简单实现了排序，假设如下：1 用户选择了课程、班级、考试  2 用户处于非查看总成绩状态
+		currentColumn = self.MyTable.currentColumn()
+		if currentColumn != self.CURRENTCOL:
+			self.CURRENTCOL = currentColumn
+			self.REVERSE = False
+		else:
+			self.REVERSE = not self.REVERSE
 		horizontalHeader = self.MyTable.horizontalHeader()
-		horizontalHeader.setSortIndicator(self.MyTable.currentColumn(), Qt.AscendingOrder)
+		horizontalHeader.setSortIndicator(self.CURRENTCOL,Qt.DescendingOrder if self.REVERSE else Qt.AscendingOrder)
 		horizontalHeader.setSortIndicatorShown(True);
-		self.MyTable.sortByColumn(self.MyTable.currentColumn(), Qt.AscendingOrder)
+		headers,datas,weight_set,student_id = self.getTableData(
+			examName = self.EXAMNAME,
+			classid = self.CLASSID,
+			courseid = self.COURSEID,
+			sort_col = self.CURRENTCOL,
+			reverse = self.REVERSE
+		)
+		r = self.REVERSE
+		self.showScoreTable(headers,datas,student_id,weight_set)
+		self.CURRENTCOL = currentColumn
+		self.REVERSE = r
 
 	def initmidwidget(self):
 		self.stack_to_saveChange = [] #保存修改的索引，用于撤销
@@ -805,7 +839,6 @@ class studentScoreManage(QMainWindow):
 		self.MyTable = QTableWidget(self.midwidget)
 		self.MyTable.itemChanged.connect(self.modifyTable)
 		self.MyTable.horizontalHeader().sectionClicked.connect(self.clickTableHeader)
-		#self.MyTable.itemSelectionChanged.connect(self.sortTable)
 
 		self.MyTable.move(10,90)
 		#self.MyTable.setStyleSheet('text-align:center;background:{}'.format(self.setting['background-color']))
@@ -827,6 +860,8 @@ class studentScoreManage(QMainWindow):
 		self.TABLE_HEADERS = headers
 		self.TABLE_DATA = datas
 		self.STUDENT_ID = student_id
+		self.CURRENTCOL = 0 #记录当前排序的列
+		self.REVERSE = False  #记录当前顺序
 		self.TABLE_DATA_COPY = [list(d) for d in datas]#用于记录修改的成绩以及和一开始的成绩比较，查看数据是否有变动
 
 		self.MyTable.setColumnCount(len(headers))
