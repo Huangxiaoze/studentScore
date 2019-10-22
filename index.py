@@ -14,7 +14,7 @@ from decimal import Decimal
 #仅仅windows支持
 import ctypes
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('myappid')
-#
+#  background:#474646;
 
 class loadQSS:
 	@staticmethod
@@ -30,28 +30,37 @@ class studentScoreManage(QMainWindow):
 		super().__init__()
 		self.initDataBase()
 		self.initWindow()
+		window_pale = QPalette() 
+		window_pale.setBrush(self.backgroundRole(),QBrush(QPixmap("./th.jpg"))) 
+		self.setPalette(window_pale)
 		#time.sleep(2)
 		self.show()
 		splash.finish(self)
 
 	def initDataBase(self):
+		"""
+		初始化数据库
+		"""
 		self.database = DataBase()
 
 	def initWindow(self):
+		"""
+		初始化窗口
+		"""
 		self.resize(1620,650)
 		self.setWindowIcon(QIcon('./windowIcon.png'))
 		self.setWindowTitle('成绩管理')
 		with open('./setting.json','r') as f:
 			content = f.read()
 		self.setting = json.loads(content)#设置
-		
+
 		self.splitter = QSplitter(self) #视图布局
 		self.leftwidget = QWidget() #左视图
 		self.midwidget = QWidget()  #中视图
 		self.rightwidget = QWidget() #右视图
 
-		self.splitter.resize(self.width(),self.height()-50)
-		self.splitter.move(0,50)
+		self.splitter.resize(self.width(),self.height()-self.setting['splitter_y'])
+		self.splitter.move(0,self.setting['splitter_y'])
 		self.splitter.addWidget(self.leftwidget)
 		self.splitter.addWidget(self.midwidget)
 		self.splitter.addWidget(self.rightwidget)
@@ -61,27 +70,32 @@ class studentScoreManage(QMainWindow):
 		self.initmidwidget()
 		self.initrightwidget()
 		self.initMenu()
+		self.initSearchWindow()
 		
 	def initrightwidget(self):
+		"""
+		初始化右侧考试信息窗口
+		"""
 		message = QLabel('考试信息',self.rightwidget)
 		message.move(100,20)
 		self.r_widget = None
 
 	def initMenu(self):
+		"""
+		初始化主窗口菜单
+		"""
 		self.build_menu = self.menuBar().addMenu('新建')  # 菜单栏
 		self.load_menu = self.menuBar().addMenu('导入')  #
 		self.help_menu = self.menuBar().addMenu('帮助')  #
 
 		self.new_toolbar = self.addToolBar('newExam')
 		self.load_toolbar = self.addToolBar('File') # 工具栏
-		self.edit_toolbar = self.addToolBar('Edit')
+		self.func_toolbar = self.addToolBar('Edit')
 
 		self.status_bar = self.statusBar() # 状态显示
-
+		self.status_bar.showMessage("hello word")
 		self.load_action = QAction('导入成绩', self)				# 动作
 		self.dump_action = QAction('导出成绩', self)				#
-		self.setweight_action = QAction('设置权重', self)		#
-		self.view_action = QAction('查看总成绩', self)			#
 		self.save_action = QAction('保存修改', self)				#
 		self.newExam_action = QAction('添加考试')				#
 		self.newcourse_action = QAction('课程')
@@ -89,6 +103,7 @@ class studentScoreManage(QMainWindow):
 		self.load_studentData_action = QAction('导入学生',self)
 		self.newQuestion_action = QAction('题型',self)
 		self.print_action = QAction('打印',self)
+		self.find_action = QAction('查找',self)
 
 
 		self.newExam_action.setIcon(QIcon(r'./images/exam1.ico')) #设置图标
@@ -98,6 +113,8 @@ class studentScoreManage(QMainWindow):
 		self.newclass_action.setIcon(QIcon(r'./images/class.ico'))
 		self.newQuestion_action.setIcon(QIcon(r'./images/question.ico'))
 		self.dump_action.setIcon(QIcon(r'./images/dump.ico'))
+		self.find_action.setIcon(QIcon(r'./images/search96px.ico'))
+		self.print_action.setIcon(QIcon(r'./images/printer.ico'))
 
 		self.load_action.triggered.connect(self.loadData)		# 动作事件响应
 		self.dump_action.triggered.connect(self.dumpData)		#
@@ -105,9 +122,9 @@ class studentScoreManage(QMainWindow):
 		self.newclass_action.triggered.connect(self.createClass)
 		self.load_studentData_action.triggered.connect(self.loadStudentData)
 		self.newExam_action.triggered.connect(self.createNewExam)
-		self.newQuestion_action.triggered.connect(self.addQuestion)
+		self.newQuestion_action.triggered.connect(self.createQuestion)
 		self.print_action.triggered.connect(self.printScoreTable)
-
+		self.find_action.triggered.connect(self.showSearch)
 
 		self.new_toolbar.addAction(self.newExam_action)		# 将动作添加到工具栏
 		self.new_toolbar.addAction(self.newcourse_action)
@@ -118,9 +135,9 @@ class studentScoreManage(QMainWindow):
 		self.load_toolbar.addAction(self.dump_action)
 		self.load_toolbar.addAction(self.load_studentData_action)
 
-		self.edit_toolbar.addAction(self.setweight_action)
-		self.edit_toolbar.addAction(self.view_action)
-		self.edit_toolbar.addAction(self.print_action)
+		self.func_toolbar.addAction(self.find_action)
+		self.func_toolbar.addAction(self.print_action)
+		
 
 
 		self.build_menu.addAction(self.newcourse_action)			# 将动作添加到菜单栏
@@ -129,15 +146,19 @@ class studentScoreManage(QMainWindow):
 		self.load_menu.addAction(self.load_studentData_action)
 		self.load_menu.addAction(self.load_action)
 	def printScoreTable(self):
+		"""
+		打印信号接口函数
+		"""
 		print('haha')
 		self.printer = QPrinter(QPrinter.HighResolution)
 		preview = QPrintPreviewDialog(self.printer, self)
 		preview.paintRequested.connect(self.PlotPic)
+		preview.resize(400,600)
 		preview.exec_()
 	def PlotPic(self):
 		painter = QPainter(self.printer)
 		# QRect(0,0) 中（0,0）是窗口坐标
-		image = self.grab(QRect(QPoint(0, 0),QSize(900,1000) ) )  # /* 绘制窗口至画布 */
+		image = self.grab(QRect(QPoint(0, 0),QSize(2900,2000) ) )  # /* 绘制窗口至画布 */
 		# QRect
 		rect = painter.viewport()
 		# QSize
@@ -147,8 +168,12 @@ class studentScoreManage(QMainWindow):
 		painter.setWindow(image.rect())
 		painter.drawPixmap(0, 0, image); 
 
-	def addQuestion(self):
+	def createQuestion(self):
+		"""
+		添加题型窗口
+		"""
 		widget = QDialog(self)
+		widget.setWindowTitle('添加题型')
 		descLabel = QLabel('题型名称：')
 		self.descLineEdit = QLineEdit()
 		save_button = QPushButton('保存')
@@ -166,15 +191,33 @@ class studentScoreManage(QMainWindow):
 		widget.exec_()
 
 	def saveQuestion(self,parent):
-		self.database.question_table.insert(self.descLineEdit.text())
+		"""
+		添加题型事件
+		"""
+		questionName = self.descLineEdit.text().strip()#去掉前后空白字符
+		if questionName == '':
+			QMessageBox.warning(self,'添加失败','题型名称不能为空',QMessageBox.Ok)
+			return
+		res = self.database.question_table.find(questionName=questionName)
+		if res!=[]:
+			QMessageBox.information(self,'添加失败','该题型已存在',QMessageBox.Ok)
+			return		
+		self.database.question_table.insert(questionName)
 		QMessageBox.information(parent,'添加题型','成功')
 
-	def addExam(self,parent): #添加一场考试
+	def addExam(self,parent): 
+		"""
+		#添加一场考试事件
+		"""
+		examName = self.examName_lineedit.text().strip()
+		if examName == '':
+			QMessageBox.warning(self,'添加失败','考试名称不能为空')
+			return
 		x,courseName_to_id = self.database.getCourseName()
 		y,className_to_id = self.database.getClassName()
 		courseid = courseName_to_id[self.createexam_courseCombox.currentText()]
 		classid = className_to_id[self.createexam_classCombox.currentText()]
-		examName = self.examName_lineedit.text()
+		
 		examDate = str(self.examTime.date().toString("yyyy-MM-dd"))
 		if self.database.exam_table.find(classid=classid, courseid = courseid,examName=examName) != []:
 			QMessageBox.warning(parent,'错误','{0} {1} {2} 已存在，请更改考试名称。'.format(
@@ -282,6 +325,9 @@ class studentScoreManage(QMainWindow):
 		return headers,datas,weight_set, student_id
 
 	def setGetClass(self,parent,combox):
+		"""
+		添加考试、导入成绩功能中，用户点击课程选择框后初始化班级下拉框
+		"""
 		courseid = self.createclass_name_to_id[parent.currentText()]
 		all_class, x = self.database.getClassName(courseid)
 		while combox.count() != 0:
@@ -289,6 +335,9 @@ class studentScoreManage(QMainWindow):
 		combox.addItems(all_class)
 
 	def createNewExam(self):
+		"""
+		添加考试窗口
+		"""
 		widget = QDialog(self)
 		widget.setWindowTitle('添加考试')
 		courselabel = QLabel('课程')
@@ -310,11 +359,8 @@ class studentScoreManage(QMainWindow):
 		question_list,x = self.database.getQuestionName()
 
 		self.createexam_courseCombox = QComboBox()
-		self.createexam_courseCombox.addItems(subjectlist)
 		self.createexam_classCombox = QComboBox()
-
 		self.createexam_courseCombox.currentIndexChanged.connect(lambda:self.setGetClass(self.createexam_courseCombox,self.createexam_classCombox))
-
 		self.checkboxs = [ ]
 		for question in question_list:
 			question_checkbox = QCheckBox(question)
@@ -371,6 +417,8 @@ class studentScoreManage(QMainWindow):
 		save_button.clicked.connect(lambda:self.addExam(widget))
 		vlayout.addWidget(save_button)
 
+		#界面初始化完成后，再添加课程下拉选择框的内容，这样就可以触发事件初始化其它数据
+		self.createexam_courseCombox.addItems(subjectlist)
 		widget.setLayout(vlayout)
 		widget.exec_()
 
@@ -385,16 +433,16 @@ class studentScoreManage(QMainWindow):
 		classlabel = QLabel('请选择班级')
 		filepathlabel = QLabel("请输入文件路径")
 		filepathbutton = QPushButton('点击选择文件')
+		courseCombox_label = QLabel('请选择课程')
 
 		self.loadS_filepath = QLineEdit()
 		filepathbutton.clicked.connect(lambda:self.selectFile(widget,self.loadS_filepath))
-
+		
+		subjectlist,  self.createclass_name_to_id= self.database.getCourseName()
 		self.l_courseCombox = QComboBox()
 		self.l_classCombox = QComboBox()
-		subjectlist,  self.createclass_name_to_id= self.database.getCourseName()
-		self.l_courseCombox.addItems(subjectlist)
-
-		courseCombox_label = QLabel('请选择课程')
+		
+		
 		self.l_courseCombox.currentIndexChanged.connect(lambda : self.setGetClass(self.l_courseCombox, self.l_classCombox))
 
 		load = QPushButton('导入')
@@ -441,6 +489,8 @@ class studentScoreManage(QMainWindow):
 		vlayout.addWidget(load)
 
 		widget.setLayout(vlayout)
+		#界面初始化完成后，再添加课程下拉框的内容
+		self.l_courseCombox.addItems(subjectlist)
 		widget.exec_()
 
 	def selectFile(self,parent, lineEdit):
@@ -480,6 +530,7 @@ class studentScoreManage(QMainWindow):
 
 	def createClass(self):
 		widget = QDialog(self)
+		widget.setWindowTitle('添加班级')
 		self.c_courseCombox = QComboBox()
 
 		subjectlist, self.c_coursename_to_id = self.database.getCourseName()
@@ -508,8 +559,18 @@ class studentScoreManage(QMainWindow):
 		widget.exec_()
 
 	def saveClass(self):
+		className = self.class_name.text().strip()
+		if className == '':
+			QMessageBox.warning(self,'添加失败','班级名不能为空')
+			return
 		courseid = self.c_coursename_to_id[self.c_courseCombox.currentText()]
-		self.database.class_table.insert(self.class_name.text(),courseid)
+
+		res = self.database.class_table.find(className=className,course_id=courseid)
+		if res!=[]:
+			QMessageBox.information(self,'添加失败','该班级已存在')
+			return
+
+		self.database.class_table.insert(className,courseid)
 		item = QTreeWidgetItem(self.class_Tree)
 		item.setText(0,self.class_name.text())
 		item.setCheckState(0, Qt.Unchecked)
@@ -523,21 +584,19 @@ class studentScoreManage(QMainWindow):
 
 	def createCourse(self):
 		widget = QDialog(self)
+		widget.setWindowTitle('添加课程')
 		self.courseNumber = QLineEdit(widget)
-		courseNumber_label = QLabel('请输入课程编号',widget)
 		self.courseName = QLineEdit(widget)
-		courseName_label = QLabel('请输入课程名称',widget)
 		hlayout = QHBoxLayout()
-		hlayout.addWidget(courseNumber_label)
+		hlayout.addWidget(QLabel('请输入课程编号'))
 		hlayout.addWidget(self.courseNumber)
 
 		h = QHBoxLayout()
-		h.addWidget(courseName_label)
+		h.addWidget(QLabel('请输入课程名称'))
 		h.addWidget(self.courseName)
 
 		save_pushbutton = QPushButton('保存')
 		save_pushbutton.clicked.connect(self.saveCourse)
-
 		vlayout = QVBoxLayout()
 		vlayout.addLayout(hlayout)
 		vlayout.addLayout(h)
@@ -548,13 +607,21 @@ class studentScoreManage(QMainWindow):
 		widget.exec_()
 
 	def saveCourse(self):
-		self.database.course_table.insert(self.courseNumber.text(),self.courseName.text())
+		courseNumber, courseName = self.courseNumber.text().strip(), self.courseName.text().strip()
+		if courseNumber == '' or courseName == '':
+			QMessageBox.warning(self,'添加失败','课程编号和课程名不能为空。')
+			return
+		res = self.database.course_table.find(courseName=courseName)
+		if res != []:
+			QMessageBox.information(self,'添加失败','课程名已存在。')
+			return
+
+		self.database.course_table.insert(courseNumber,courseName)
 		item = QTreeWidgetItem(self.subjectTree)
 		item.setText(0,self.courseName.text())
 		item.setCheckState(0, Qt.Unchecked)
 		self.subjectItems.append(item)
 		QApplication.processEvents()
-
 
 		select = QMessageBox.information(self,"新建成功","是否立即创建班级？",QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
@@ -825,16 +892,8 @@ class studentScoreManage(QMainWindow):
 		addStudent.clicked.connect(self.watch_total_score)
 
 		modify_score_button = QPushButton("更改成绩",self.midwidget)
-		modify_score_button.move(10,55)
+		modify_score_button.move(190,15)
 		modify_score_button.clicked.connect(self.modifyScore)
-
-		searchLineedit = QLineEdit(self.midwidget)
-		searchLineedit.setPlaceholderText('输入学号')
-		searchLineedit.move(340,15)
-
-		searchbutton = QPushButton('搜索',self.midwidget)
-		searchbutton.move(550,15)
-		searchbutton.clicked.connect(self.search)
 
 		self.MyTable = QTableWidget(self.midwidget)
 		self.MyTable.itemChanged.connect(self.modifyTable)
@@ -887,29 +946,18 @@ class studentScoreManage(QMainWindow):
 				self.MyTable.setItem(i+len(datas),j,node)
 				if self.TABLE_QUESTION_WEIGHT!=None and j==len(item)-1:
 					node.setFlags(Qt.ItemIsEnabled)
-
-	def search(self):
-		print('hello')
-
-	def loadData_getExamId(self,combox):
-		self.load_examid = self.examName_to_id[combox.currentText()]
-		print(self.load_examid)
-
 	def loadData_getClass(self):
-		print('loadData_getClass')
+		print('loadData_getClass',self.load_courseCombox.currentText())
 		course, coursename_to_id = self.database.getCourseName()
 		courseid = coursename_to_id[self.load_courseCombox.currentText()]
 		self.courseid = courseid
-
 		class_, self.className_to_id = self.database.getClassName(courseid)
-
 		self.clearClass = True
 		while self.load_classCombox.count()!=0:
 			self.load_classCombox.removeItem(0)
 		while self.load_examName_combox.count()!=0:
-			self.load_classCombox.removeItem(0)
+			self.load_examName_combox.removeItem(0)
 		self.clearClass = False
-
 		self.load_classCombox.addItems(class_)
 		QApplication.processEvents()
 
@@ -917,19 +965,22 @@ class studentScoreManage(QMainWindow):
 		print('loadData_getExamName')
 		if self.clearClass==True:
 			return
-		self.classid = self.className_to_id[self.load_classCombox.currentText()]
-		all_exam, self.examName_to_id = self.database.getExamName(classid = self.classid,courseid= self.courseid)
-		print(all_exam, self.examName_to_id)
 		self.clearExamName = True
 		while self.load_examName_combox.count()!=0:
 			self.load_examName_combox.removeItem(0)
-		self.clearExamName = False
+		self.clearExamName = False	
+		
+		if self.load_classCombox.currentText()=='':
+			return
+
+		self.classid = self.className_to_id[self.load_classCombox.currentText()]
+		all_exam, self.examName_to_id = self.database.getExamName(classid = self.classid,courseid= self.courseid)
 
 		self.load_examName_combox.addItems(all_exam)
 		QApplication.processEvents()
 
 	def loadData_getQuestion(self,parent):
-		if self.clearExamName == True:
+		if self.clearExamName == True or self.load_examName_combox.currentText()=='':
 			return
 		self.load_examid = self.examName_to_id[self.load_examName_combox.currentText()]
 		exam = self.database.exam_table.find(id=self.load_examid)[0]
@@ -1039,12 +1090,9 @@ class studentScoreManage(QMainWindow):
 		self.load_classCombox = QComboBox()
 		self.load_examName_combox = QComboBox()
 
-		self.load_courseCombox.addItems(subjectlist)
-
 		self.load_courseCombox.currentIndexChanged.connect(self.loadData_getClass)
 		self.load_classCombox.currentIndexChanged.connect(self.loadData_getExamName)	
 		self.load_examName_combox.currentIndexChanged.connect(lambda:self.loadData_getQuestion(widget))
-
 		self.question_labels = [ ]
 		for question in question_list:
 			question_checkbox = QLabel(question)
@@ -1097,6 +1145,9 @@ class studentScoreManage(QMainWindow):
 		save_button.clicked.connect(lambda:self.loadScore())
 
 		self.question_vlayout.addWidget(save_button)
+
+		#界面初始化完成后，把课程添加到课程下拉框以触发事件
+		self.load_courseCombox.addItems(subjectlist)
 		widget.setLayout(self.question_vlayout)
 		widget.exec_()
 
@@ -1445,30 +1496,107 @@ class studentScoreManage(QMainWindow):
 			self.database.exam_table.update(id = examName_to_id[examName], exam_weight=weights[i])
 		self.watch_total_score()
 
+	def searchPre(self):
+		if self.res_is_null:
+			return
+		if self.scrollIndex==0:
+			QMessageBox.information(self,'搜索结果','已到达第一个搜索结果')
+			return
+		else:
+			self.searchRow(self.search_rows[self.scrollIndex],'#BFB8B8')#恢复表格正常的颜色
+			self.scrollIndex -= 1                                         #获取其行号
+			self.searchRow(self.search_rows[self.scrollIndex],self.setting['search_select_color'])
+			self.MyTable.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+	
+	def searchRow(self, row, backgroundcolor=''):
+		temp = self.IS_USER_CHANGEITEM
+		self.IS_USER_CHANGEITEM = False
+		for i in range(len(self.TABLE_HEADERS)):
+			self.MyTable.item(row,i).setBackground(QBrush(QColor(backgroundcolor)))
+		self.IS_USER_CHANGEITEM = temp
+
+	def searchNext(self):
+		if self.res_is_null:
+			return
+		if self.scrollIndex == len(self.search_rows)-1:
+			QMessageBox.information(self,'搜索结果','已到达最后一个搜索结果')
+			return
+		else:
+			self.searchRow(self.search_rows[self.scrollIndex],'#BFB8B8')#恢复表格正常的颜色
+			self.scrollIndex += 1                                         #获取其行号
+			self.searchRow(self.search_rows[self.scrollIndex],self.setting['search_select_color'])
+			self.MyTable.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+
+	def search(self):
+		search_content = self.search_lineEdit.text().strip()
+		items =self.MyTable.findItems(search_content, Qt.MatchExactly)#遍历表查找对应的item
+		if items==[]:
+			QMessageBox.information(self,'搜索结果','内容没找到！')
+			self.res_is_null = True
+			return
+		self.res_is_null = False
+		self.search_rows = [item.row() for item in items]
+		self.scrollIndex = 0     
+		self.searchRow(self.search_rows[self.scrollIndex],self.setting['search_select_color'])                                    #获取其行号
+		self.MyTable.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+
+	def showSearch(self):
+		self.searchFrame.setVisible(True)
+		self.search_lineEdit.setFocus(True)
+
+	def initSearchWindow(self):
+
+		self.searchFrame = QFrame(self)
+		self.searchFrame.resize(self.width(), self.setting["searchWindowHeight"])
+		self.searchFrame.move(0, self.height()-self.setting["searchWindowHeight"])
+		self.searchFrame.setStyleSheet('background:#edcd9e;border:2px red solid;')
+		self.search_lineEdit = QLineEdit(self.searchFrame)
+		self.search_lineEdit.setPlaceholderText('请输入搜索内容')
+		self.search_lineEdit.setStyleSheet('background:white;')
+		
+		quit_button = QPushButton("退出")
+		quit_button.setStyleSheet('background:black;')
+		quit_button.clicked.connect(lambda:self.searchFrame.setVisible(False))
+
+		searchbutton = QPushButton('搜索')
+		searchbutton.setStyleSheet('background:black;')
+		searchbutton.clicked.connect(self.search)
+
+		findPrev = QPushButton('上一个')
+		findPrev.setStyleSheet('background:black;')
+		findPrev.clicked.connect(self.searchPre)
+
+		findNext = QPushButton('下一个')
+		findNext.setStyleSheet('background:black;')
+		findNext.clicked.connect(self.searchNext)
+
+		hlayout = QHBoxLayout()
+		hlayout.addWidget(self.search_lineEdit)
+		hlayout.addWidget(searchbutton)
+		hlayout.addWidget(findPrev)
+		hlayout.addWidget(findNext)
+		hlayout.addWidget(quit_button)
+
+		self.searchFrame.setLayout(hlayout)
+		self.searchFrame.show()
+		self.searchFrame.setVisible(False)
 
 	def closeEvent(self,event):
 		print('close')
 		self.database.closeDB()
 
 	def resizeEvent(self,event):
-		self.splitter.resize(self.width(),self.height()-50)
+		self.splitter.resize(self.width(),self.height()-self.setting['splitter_y'])
 		self.MyTable.resize(900,self.height()-200)
+		self.searchFrame.resize(self.width(), self.setting["searchWindowHeight"])
+		self.searchFrame.move(0, self.height()-self.setting["searchWindowHeight"])
 
 	def keyPressEvent(self,event):
-		pass
-		# if event.key() == Qt.Key_Z:
-		# 	print(QApplication.keyboardModifiers())
-		# 	if QApplication.keyboardModifiers() == Qt.ControlModifier:
-		# 		print('撤销')
-		# 		if len(self.stack_to_saveChange)!=0:
-		# 			row, col, data = self.stack_to_saveChange.pop(-1)
-		# 			self.MyTable.item(row, col).setText(data)
-		# 			if row>=len(self.TABLE_DATA):
-		# 				self.addRow[row][col] = data;
-		# 			else:
-		# 				self.TABLE_DATA[row][col] = data;
-		# 	else:
-		# 		print('P')
+		if event.key() == Qt.Key_F:
+			if QApplication.keyboardModifiers() == Qt.ControlModifier:
+				self.showSearch()
+		elif event.key() == Qt.Key_Escape:
+			self.searchFrame.setVisible(False)
 
 if __name__ == '__main__':
 	app = QApplication(sys.argv)

@@ -5,5 +5,8 @@
 	"table_addRow":20,
 	"cell_data_error":"#42FBDF",
 	"cell_data_modify":"#FFFBC1",
-	"table_delRow":"#FF0101"
+	"search_select_color":"#89CBCA",
+	"table_delRow":"#FF0101",
+	"splitter_y":65,
+	"searchWindowHeight":60
 }

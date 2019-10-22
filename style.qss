@@ -2,6 +2,10 @@ QPushButton:hover{color:#EF7F7F;}
 QPushButton{border-radius:6px;border:1px solid black;background:#6D6969;padding:6px;color:yellow;}
 QSplitter:handle{background:#5F88FC;border-radius:5px;border-style:outset;border:solid red 2px;}
 QSplitter{border:5px solid #69F053;}
-QTableWidget{background:#BFB8B8;}
-QWidget{background:#474646;color:white;}
+QTableWidget{background:#BFB8B8;color:white;}
+
 QHeaderView:section{background:skyblue;}
+QLineEdit{color:red;}
+QSpinBox{color:#3AF84D;}
+QLabel{color:#767373;}
+QComboBox{color:#5BCCFF;}
