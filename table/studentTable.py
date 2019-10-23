@@ -23,8 +23,6 @@ class Student(QTableView):
                 course_id int,
                 constraint classid foreign key(classid) references class(id),
                 constraint courseid foreign key(course_id) references course(id)
-
-
             )
             """
             )
@@ -37,7 +35,6 @@ class Student(QTableView):
 
     def find(self,**args):
         condition = []
-        print(args)
         for key, value in args.items():  
             if key in ['id', 'classid','course_id']: 
                 condition.append("{0}={1}".format(key,value))
@@ -50,7 +47,6 @@ class Student(QTableView):
             sql = 'select * from student where {}'.format(And)
         else:
             sql = 'select * from student'
-        print(sql)
         model.exec_(sql)
         res = []
         while model.next():
@@ -73,6 +69,7 @@ class Student(QTableView):
         sql = "delete from student where id={}".format(id)
         res = model.exec_(sql)
         return res
+
     def insert(self, number,name,classid,course_id):
         try:
             model = QSqlQuery()

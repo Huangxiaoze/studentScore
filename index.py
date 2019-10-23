@@ -11,6 +11,7 @@ import processData
 import time
 from collections import defaultdict
 from decimal import Decimal
+import os
 #仅仅windows支持
 import ctypes
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('myappid')
@@ -64,7 +65,7 @@ class studentScoreManage(QMainWindow):
 		self.splitter.addWidget(self.leftwidget)
 		self.splitter.addWidget(self.midwidget)
 		self.splitter.addWidget(self.rightwidget)
-		self.splitter.setSizes([200,920,500])
+		self.splitter.setSizes([200,940,400])
 
 		self.initleftwidget()
 		self.initmidwidget()
@@ -210,7 +211,14 @@ class studentScoreManage(QMainWindow):
 		#添加一场考试事件
 		"""
 		examName = self.examName_lineedit.text().strip()
-		if examName == '':
+
+		if self.createexam_courseCombox.currentText() == '':
+			QMessageBox.warning(self,'添加失败','请选择课程')
+			return		
+		elif self.createexam_classCombox.currentText() == '':
+			QMessageBox.warning(self,'添加失败','请选择班级')
+			return		
+		elif examName == '':
 			QMessageBox.warning(self,'添加失败','考试名称不能为空')
 			return
 		x,courseName_to_id = self.database.getCourseName()
@@ -328,6 +336,9 @@ class studentScoreManage(QMainWindow):
 		"""
 		添加考试、导入成绩功能中，用户点击课程选择框后初始化班级下拉框
 		"""
+		#课程下拉选择框为空时，直接返回
+		if parent.currentText() == '':
+			return
 		courseid = self.createclass_name_to_id[parent.currentText()]
 		all_class, x = self.database.getClassName(courseid)
 		while combox.count() != 0:
@@ -506,19 +517,36 @@ class studentScoreManage(QMainWindow):
 		courseName = self.l_courseCombox.currentText()
 		className = self.l_classCombox.currentText()
 		filepath = self.loadS_filepath.text()
-		if courseName == '' or className == '' or filepath == '':
-			QMessageBox.warning(self,'操作错误','请把信息填完整')
+		if courseName == '':
+			QMessageBox.warning(self,'导入失败','请选择课程')
+			return
+		elif className == '':
+			QMessageBox.warning(self,'导入失败','请选择班级')
+			return
+		elif filepath == '':
+			QMessageBox.warning(self,'导入失败','请选择文件')
+			return
+
+		if not os.path.isfile(filepath):
+			QMessageBox.warning(self,'导入失败','文件不存在')
+			return
+
+		try:
+			students = processData.loadStudent(filepath,self.stunumber_spinbox.value(),self.stuname_spinbox.value())
+		except:
+			QMessageBox.information(self,'导入失败','请检查文件类型是否正确')
 			return
 
 		x, coursename_to_id = self.database.getCourseName()
 		y, classname_to_id = self.database.getClassName()
-		students = processData.loadStudent(filepath,self.stunumber_spinbox.value(),self.stuname_spinbox.value())
-
+		
 		courseid = coursename_to_id[courseName]
 		classid = classname_to_id[className]
 
 		for student in students:
-			self.database.student_table.insert(student[0], student[1], classid, courseid)
+			# 该学生记录如果不存在则记录到数据库
+			if self.database.student_table.find(classid = classid, courseid = courseid, number = student[0]) != []:
+				self.database.student_table.insert(student[0], student[1], classid, courseid)
 
 		headers = ['学号','姓名']
 		datas = []
@@ -526,7 +554,7 @@ class studentScoreManage(QMainWindow):
 			datas.append((student[1],student[2]))
 		self.showScoreTable(headers,datas,None)
 		QApplication.processEvents()
-		QMessageBox.information(self,'导入成功，功能关闭','!!!')
+		QMessageBox.information(self,'导入成功','!!!')
 
 	def createClass(self):
 		widget = QDialog(self)
@@ -626,15 +654,6 @@ class studentScoreManage(QMainWindow):
 		select = QMessageBox.information(self,"新建成功","是否立即创建班级？",QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
 			self.createClass()
-
-		
-
-	def initleftwidget(self):
-		label = QLabel("成绩管理",self.leftwidget)
-		label.move(0,0)
-		label.resize(200,80)
-		label.setStyleSheet("border:2px solid red;padding:20px;color:red;width:100px;height:200px;")
-		self.initLeftFunc()
 
 	def modifyScore(self): #修改成绩 可以知道，在changeRow中记录为True的行必定发生了改变
 		modify = defaultdict(list)
@@ -879,27 +898,21 @@ class studentScoreManage(QMainWindow):
 		self.REVERSE = r
 
 	def initmidwidget(self):
-		self.stack_to_saveChange = [] #保存修改的索引，用于撤销
-		# self.addRow = [None for i in range(self.setting['table_addRow'])] #
-		topTooBar = QLabel(self.midwidget)
-		topTooBar.move(0,0)
-		topTooBar.resize(920,80)
-		topTooBar.setStyleSheet("border:2px solid red;padding:20px;color:red;text-align:center;")
 
-		addStudent = QPushButton("查看班级总成绩",self.midwidget)
-		addStudent.move(10,15)
-		addStudent.setStyleSheet('border-radius:6px;border:1px solid black;background:#6D6969;padding:6px;')
-		addStudent.clicked.connect(self.watch_total_score)
+		checkScore_button = QPushButton("查看班级总成绩",self.midwidget)
+		checkScore_button.move(10,10)
+		checkScore_button.setStyleSheet('border-radius:6px;border:1px solid black;background:#6D6969;padding:6px;')
+		checkScore_button.clicked.connect(self.watch_total_score)
 
 		modify_score_button = QPushButton("更改成绩",self.midwidget)
-		modify_score_button.move(190,15)
+		modify_score_button.move(190,10)
 		modify_score_button.clicked.connect(self.modifyScore)
 
 		self.MyTable = QTableWidget(self.midwidget)
 		self.MyTable.itemChanged.connect(self.modifyTable)
 		self.MyTable.horizontalHeader().sectionClicked.connect(self.clickTableHeader)
 
-		self.MyTable.move(10,90)
+		self.MyTable.move(0,50)
 		#self.MyTable.setStyleSheet('text-align:center;background:{}'.format(self.setting['background-color']))
 		headers = ['ID','学号','姓名','班级ID','课程ID']
 		self.showScoreTable(headers,self.database.student_table.find(),None)#可删除， 无用代码
@@ -947,17 +960,21 @@ class studentScoreManage(QMainWindow):
 				if self.TABLE_QUESTION_WEIGHT!=None and j==len(item)-1:
 					node.setFlags(Qt.ItemIsEnabled)
 	def loadData_getClass(self):
+		if self.load_courseCombox.currentText() == '': # 不存在任何课程
+			return
 		print('loadData_getClass',self.load_courseCombox.currentText())
 		course, coursename_to_id = self.database.getCourseName()
 		courseid = coursename_to_id[self.load_courseCombox.currentText()]
 		self.courseid = courseid
 		class_, self.className_to_id = self.database.getClassName(courseid)
+
 		self.clearClass = True
 		while self.load_classCombox.count()!=0:
 			self.load_classCombox.removeItem(0)
 		while self.load_examName_combox.count()!=0:
 			self.load_examName_combox.removeItem(0)
 		self.clearClass = False
+
 		self.load_classCombox.addItems(class_)
 		QApplication.processEvents()
 
@@ -1014,13 +1031,48 @@ class studentScoreManage(QMainWindow):
 
 
 	def loadScore(self): #导入成绩，接口函数
+		courseName = self.load_courseCombox.currentText()
+		className = self.load_classCombox.currentText()
+		examName = self.load_examName_combox.currentText()
+
+		# 检查课程班级考试信息是否完整
+		if courseName == '':
+			QMessageBox.warning(self,'导入失败','请选择课程')
+			return		
+		elif className == '':
+			QMessageBox.warning(self,'导入失败','请选择班级')
+			return		
+		elif examName == '':
+			QMessageBox.warning(self,'导入失败','请选择考试')
+			return
+
+		# 检查文件路径是否为空，或者文件是否存在
+		filepath = self.loadscore_filepath.text()
+		if filepath == '':
+			QMessageBox.warning(self,'导入失败','请选择文件')
+			return
+		elif not os.path.isfile(filepath):
+			QMessageBox.warning(self,'导入失败','文件不存在')
+			return
+
+		# 判断是否能正确获取文件数据，文件类型是否正确
 		cols = []
 		for c in self.weights:
 			cols.append(int(c.value()))
 
-		filepath = self.loadscore_filepath.text()
-		datas = processData.loadScore(filepath,cols)
-		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
+		try:
+			datas = processData.loadScore(filepath,cols)
+		except:
+			QMessageBox.information(self,'导入失败','请检查文件类型是否正确')
+			return
+
+		# 数据都没有问题
+		self.courseid = self.database.course_table.find(courseName = courseName)[0][0]
+		self.classid = self.database.class_table.find(className=className, course_id = self.courseid)[0][0]
+		self.load_examid = self.database.exam_table.find(examName = examName, courseid = self.courseid, classid = self.classid)[0][0]
+		print(self.courseid, self.classid,self.load_examid)
+		# return
+		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
 
 		d_students = [(n[cols[0]-1],n[cols[1]-1]) for n in datas] #（学号， 姓名）
 		s_students = [(n[1],n[2]) for n in all_students]
@@ -1029,14 +1081,14 @@ class studentScoreManage(QMainWindow):
 		d_sub_s = list(set(d_students) - set(s_students))
 		s_sub_d = list(set(s_students) - set(d_students))
 		for student in d_sub_s:
-			self.database.student_table.insert(student[0],student[1],int(self.classid),int(self.courseid))
+			self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
 		for student in s_sub_d:
 			student = list(student)
 			student.extend([0 for i in range(len(cols)-2)])
 			datas.append(tuple(student))
 
 		#更新学生表以获得id
-		all_students = self.database.student_table.find(course_id = int(self.courseid),classid = int(self.classid))
+		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
 		student_dict = {}
 		for student in all_students:
 			student_dict[student[1]] = student[0]
@@ -1059,7 +1111,6 @@ class studentScoreManage(QMainWindow):
 				self.database.escore_table.insert(int(self.load_examid),int(student_dict[s_score[0]]),int(self.classid),int(self.courseid),json.dumps(score))
 		
 		#显示成绩
-		examName = self.load_examName_combox.currentText()
 		headers,s_datas,weight_set, student_id = self.getTableData(
 					examName = examName,
 					classid = self.classid,
@@ -1076,7 +1127,7 @@ class studentScoreManage(QMainWindow):
 		classlabel = QLabel('班级')
 		examName = QLabel('考试类型')
 
-		filepathlabel = QLabel("请输入文件路径")
+		filepathlabel = QLabel("文件路径")
 		filepathbutton = QPushButton('点击选择文件')
 		self.loadscore_filepath = QLineEdit()
 		filepathbutton.clicked.connect(lambda:self.selectFile(widget,self.loadscore_filepath))
@@ -1142,7 +1193,7 @@ class studentScoreManage(QMainWindow):
 			self.question_vlayout.addLayout(hlayout)
 
 		save_button = QPushButton('导入成绩')
-		save_button.clicked.connect(lambda:self.loadScore())
+		save_button.clicked.connect(self.loadScore)
 
 		self.question_vlayout.addWidget(save_button)
 
@@ -1347,12 +1398,12 @@ class studentScoreManage(QMainWindow):
 		self.r_widget.move(0,40)
 		self.r_widget.show()
 
-
-
-	def initLeftFunc(self):                      # 1
-		self.tree = QTreeWidget(self.leftwidget)  
-		self.tree.move(0,80) 
-		self.tree.resize(200,520)                      # 2
+	def initleftwidget(self):                    
+		self.tree = QTreeWidget(self.leftwidget) 
+		self.tree.setStyleSheet('color:#DB77F6;text-align:center;')
+		#self.tree.setRootIsDecorated(False)
+		self.tree.move(0,0) 
+		self.tree.resize(200,self.height())                      
 		self.tree.setColumnCount(1)
 		self.tree.setHeaderLabels(['成绩查询'])
 
@@ -1381,8 +1432,7 @@ class studentScoreManage(QMainWindow):
 		    item.setCheckState(0, Qt.Unchecked)
 		    self.subjectItems.append(item)
 		self.classItems = []
-		self.tree.expandAll() 
-		self.tree.setStyleSheet('border:2px solid red;color:red;text-align:center;')  
+		self.tree.expandAll()   
 
 	def watch_total_score(self):#查看所有成绩，禁止修改表格，可以修改考试所占比重
 		if self.COURSEID == None or self.CLASSID == None:
@@ -1586,6 +1636,7 @@ class studentScoreManage(QMainWindow):
 		self.database.closeDB()
 
 	def resizeEvent(self,event):
+		self.tree.resize(200,self.height())
 		self.splitter.resize(self.width(),self.height()-self.setting['splitter_y'])
 		self.MyTable.resize(900,self.height()-200)
 		self.searchFrame.resize(self.width(), self.setting["searchWindowHeight"])
