@@ -10,6 +10,7 @@ class DataBase(QTableView):
         super(DataBase, self).__init__()
         self.db = None
         self.db_connect()
+        #self.mysql_connect()
 
         self.model = QSqlTableModel()
 
@@ -21,6 +22,14 @@ class DataBase(QTableView):
         self.question_table = questionTable.Question(self.model)
         self.createTable()
         print(len(self.escore_table.find(classid = 7, courseid = 9, examid = 12)))
+    def mysql_connect(self):
+        self.db = QSqlDatabase.addDatabase('QMYSQL')
+        self.db.setHostName('localhost')
+        self.db.setDatabaseName('studentscore')
+        self.db.setUserName('root')
+        self.db.setPassword('0128huang')
+        if not self.db.open():                           # 3
+            QMessageBox.critical(self, 'Database Connection', self.db.lastError().text())
 
     def getCourseName(self):
         name = []
