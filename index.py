@@ -116,7 +116,7 @@ class studentScoreManage(QMainWindow):
 		self.find_action.setIcon(QIcon(r'./images/search96px.ico'))
 		self.print_action.setIcon(QIcon(r'./images/printer.ico'))
 
-		self.load_action.triggered.connect(self.loadData)		# 动作事件响应
+		self.load_action.triggered.connect(lambda:self.loadData())		# 动作事件响应
 		self.dump_action.triggered.connect(self.dumpData)		#
 		self.newcourse_action.triggered.connect(self.createCourse)
 		self.newclass_action.triggered.connect(lambda:self.createClass())
@@ -269,7 +269,12 @@ class studentScoreManage(QMainWindow):
 		# 	courseid = courseid,
 		# 	)
 		# self.showScoreTable(headers,datas)
-		select = QMessageBox.information(parent,'添加考试','成功添加，功能关闭',QMessageBox.Ok|QMessageBox.Cancel)
+		item = QTreeWidgetItem(self.exam_Tree)
+		item.setText(0,examName)
+		item.setCheckState(0, Qt.Unchecked)
+		self.exam_Tree.setExpanded(True)
+		QApplication.processEvents()
+		select = QMessageBox.information(parent,'添加考试','添加成功',QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
 			print("hahahhaha")
 
@@ -550,7 +555,7 @@ class studentScoreManage(QMainWindow):
 
 		for student in students:
 			# 该学生记录如果不存在则记录到数据库
-			if self.database.student_table.find(classid = classid, courseid = courseid, number = student[0]) != []:
+			if self.database.student_table.find(classid = classid, courseid = courseid, number = student[0]) == []:
 				self.database.student_table.insert(student[0], student[1], classid, courseid)
 
 		headers = ['学号','姓名']
@@ -610,7 +615,6 @@ class studentScoreManage(QMainWindow):
 		item = QTreeWidgetItem(self.class_Tree)
 		item.setText(0,self.class_name.text())
 		item.setCheckState(0, Qt.Unchecked)
-		self.classItems.append(item)
 		QApplication.processEvents()
 
 		select = QMessageBox.information(self,"新建成功","是否立即导入学生？",QMessageBox.Ok|QMessageBox.Cancel)
@@ -653,10 +657,9 @@ class studentScoreManage(QMainWindow):
 			return
 
 		self.database.course_table.insert(courseNumber,courseName)
-		item = QTreeWidgetItem(self.subjectTree)
+		item = QTreeWidgetItem(self.course_Tree)
 		item.setText(0,self.courseName.text())
 		item.setCheckState(0, Qt.Unchecked)
-		self.subjectItems.append(item)
 		QApplication.processEvents()
 
 		select = QMessageBox.information(self,"新建成功","是否立即创建班级？",QMessageBox.Ok|QMessageBox.Cancel)
@@ -1005,10 +1008,13 @@ class studentScoreManage(QMainWindow):
 		self.load_examName_combox.addItems(all_exam)
 		QApplication.processEvents()
 
-	def loadData_getQuestion(self,parent):
+	def loadData_getQuestion(self,parent, examid = None):
 		if self.clearExamName == True or self.load_examName_combox.currentText()=='':
 			return
-		self.load_examid = self.examName_to_id[self.load_examName_combox.currentText()]
+		if examid == None:
+			self.load_examid = self.examName_to_id[self.load_examName_combox.currentText()]
+		else:
+			self.load_examid = examid
 		exam = self.database.exam_table.find(id=self.load_examid)[0]
 
 		self.question_name = exam[-2].split('<|>')
@@ -1129,7 +1135,7 @@ class studentScoreManage(QMainWindow):
 		QMessageBox.information(self,'操作结果','导入成功',QMessageBox.Ok)
 
 
-	def loadData(self):  #导入学生成绩
+	def loadData(self, courseName_=None, className_=None, examName_=None, examid = None):  #导入学生成绩
 		widget = QDialog(self)
 		widget.setWindowTitle('导入到')
 		courselabel = QLabel('课程')
@@ -1150,10 +1156,7 @@ class studentScoreManage(QMainWindow):
 		self.load_classCombox = QComboBox()
 		self.load_examName_combox = QComboBox()
 
-		self.load_courseCombox.currentIndexChanged.connect(self.loadData_getClass)
-		self.load_classCombox.currentIndexChanged.connect(self.loadData_getExamName)	
-		self.load_examName_combox.currentIndexChanged.connect(lambda:self.loadData_getQuestion(widget))
-		self.question_labels = [ ]
+		self.question_labels = []
 		for question in question_list:
 			question_checkbox = QLabel(question)
 			self.question_labels.append(question_checkbox)
@@ -1207,7 +1210,18 @@ class studentScoreManage(QMainWindow):
 		self.question_vlayout.addWidget(save_button)
 
 		#界面初始化完成后，把课程添加到课程下拉框以触发事件
-		self.load_courseCombox.addItems(subjectlist)
+		if courseName_ == None and className_ == None and examName_ ==None:
+			self.load_courseCombox.currentIndexChanged.connect(self.loadData_getClass)
+			self.load_classCombox.currentIndexChanged.connect(self.loadData_getExamName)	
+			self.load_examName_combox.currentIndexChanged.connect(lambda:self.loadData_getQuestion(widget,examid))
+			self.load_courseCombox.addItems(subjectlist)
+		else:
+			self.clearExamName = False
+			self.load_courseCombox.addItem(courseName_)
+			self.load_classCombox.addItem(className_)
+			self.load_examName_combox.currentIndexChanged.connect(lambda:self.loadData_getQuestion(widget,examid))
+			self.load_examName_combox.addItem(examName_)
+
 		widget.setLayout(self.question_vlayout)
 		widget.exec_()
 
@@ -1252,78 +1266,202 @@ class studentScoreManage(QMainWindow):
 			courseName = self.database.course_table.find(id=self.COURSEID)[0][2]
 			className = self.database.class_table.find(id = self.CLASSID)[0][1]
 			self.createNewExam(courseName, className)
-		elif funcType == 2:
-			print(self.COURSEID, self.CLASSID, self.EXAMID)
 
-	def del_or_clear(self, funcType):
+	def del_or_clear(self, funcType, isDel):
 		"""
 		funcType: {0:课程孩子节点，1:班级孩子节点，2:考试类型孩子节点，3:课程节点，4:班级节点，5:考试类型节点}
 		"""
-		if funcType == 0:
+		currentItem = self.scoreTree.currentItem()
+		if funcType == 0: # 删除课程 或者 清空课程下的班级
 			print(self.COURSEID)
-			QMessageBox.critical(self,'删除','将清空该课程所有的班级和考试，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
-		elif funcType == 1:
+			select = QMessageBox.critical(self,'删除','将清空该课程所有的班级和考试，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			if select == QMessageBox.Cancel:
+				return
+
+			# 删除课程需要删除该课程下的班级、学生、考试、考试成绩 和该课程， 清空该课程，不需要删除该门课程即可
+			self.del_one_course(self.COURSEID)
+
+			# 删除模式下，删除该课程
+			if isDel:
+				self.database.course_table.delete(id = self.COURSEID)
+				self.course_Tree.removeChild(currentItem)
+
+			while self.exam_Tree.childCount()!=0:
+				self.exam_Tree.removeChild(self.exam_Tree.child(0))
+			while self.class_Tree.childCount()!=0:
+				self.class_Tree.removeChild(self.class_Tree.child(0))
+
+			self.class_Tree.setExpanded(False)
+			self.exam_Tree.setExpanded(False)
+
+			if self.course_Tree.childCount() == 0:
+				self.course_Tree.setExpanded(False)
+			QApplication.processEvents()
+			QMessageBox.information(self, '操作结果','删除成功')
+
+
+		elif funcType == 1: # 删除班级 或 清空班级考试
 			print(self.COURSEID, self.CLASSID)
-			QMessageBox.critical(self,'删除','将清空该班级所有的考试，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			select = QMessageBox.critical(self,'删除','将清空该班级所有的考试及学生，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			if select == QMessageBox.Cancel:
+				return
+			#isDel: true: 删除班级考试和学生，false:仅仅删除班级考试
+			self.del_one_class(self.COURSEID, self.CLASSID, isDel)
+			
+			#isDel: true: 删除该班级
+			if isDel:
+				self.database.class_table.delete(id = self.CLASSID)
+				self.class_Tree.removeChild(currentItem)# 将班级从班级树中删除
+			# 清空折叠树的所有考试节点
+			while self.exam_Tree.childCount()!=0:
+				self.exam_Tree.removeChild(self.exam_Tree.child(0))
+			self.exam_Tree.setExpanded(False)
+			
+			if self.class_Tree.childCount() == 0:
+				self.class_Tree.setExpanded(False)
+			QApplication.processEvents()
+			QMessageBox.information(self, '操作结果','成功删除')
+				
+
 		elif funcType == 2:
 			print(self.COURSEID, self.CLASSID, self.EXAMID)
-			QMessageBox.critical(self,'删除','将清空该考试所有同学的成绩，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
-		elif funcType == 3:
-			QMessageBox.critical(self,'清空','将清空所有课程，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
-		elif funcType == 4:
-			QMessageBox.critical(self,'清空','将清空所有班级，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
-		else:
-			QMessageBox.critical(self,'清空','将清空所有考试，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			select = QMessageBox.critical(self,'删除','将清空该考试所有同学的成绩，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			if select == QMessageBox.Cancel:
+				return
+			#删除考试成绩
+			self.del_one_exam_score(self.EXAMID, self.COURSEID, self.CLASSID)
+			#删除该场考试
+			if isDel:
+				self.database.exam_table.delete(id = self.EXAMID)
+				self.exam_Tree.removeChild(self.scoreTree.currentItem())
+			if self.exam_Tree.childCount() == 0:
+				self.exam_Tree.setExpanded(False)
+			QApplication.processEvents()
+			QMessageBox.information(self,'操作结果','成功删除')
 
+		elif funcType == 3:
+			select = QMessageBox.critical(self,'清空','将清空所有课程，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			if select == QMessageBox.Cancel:
+				return
+			
+			return
+			all_courses = self.database.course_table.find()
+			for course in all_courses:
+				self.del_one_course(course[0])
+				self.database.course_table.delete(id = course[0])
+
+			while self.exam_Tree.childCount()!=0:
+				self.exam_Tree.removeChild(self.exam_Tree.child(0))
+			while self.class_Tree.childCount() != 0:
+				self.class_Tree.removeChild(self.class_Tree.child(0))
+			while self.course_Tree.childCount()!=0:
+				self.course_Tree.removeChild(self.course_Tree.child(0))
+			self.exam_Tree.setExpanded(False)
+			self.class_Tree.setExpanded(False)
+			self.course_Tree.setExpanded(False)
+			QApplication.processEvents()
+			QMessageBox.information(self,'操作结果','成功清空')
+
+	def del_one_course(self,courseid):
+		all_class = self.database.class_table.find(course_id = courseid)
+		# 删除改课程下的所有班级
+		for class_ in all_class:
+			self.del_one_class(courseid, class_[0], True)
+			self.database.class_table.delete(id = class_[0])
+
+	def del_one_class(self, courseid, classid, isDel):
+		all_exam = self.database.exam_table.find(classid = classid , courseid = courseid)
+		all_examid = [exam[0] for exam in all_exam]
+		#删除考试成绩
+		for examid in all_examid:
+			self.del_one_exam_score(examid, courseid, classid)
+			self.database.exam_table.delete(id = examid)
+
+		#删除学生
+		if isDel:
+			all_students = self.database.student_table.find(classid = classid, course_id = courseid)
+			for student in all_students:
+				self.database.student_table.delete(id = student[0])
+
+	def del_one_exam_score(self, examid, courseid, classid):
+		all_students = self.database.student_table.find(classid = classid, course_id = courseid)
+		for student in all_students:
+			studentid = student[0]
+			self.database.escore_table.delete(
+					examid = examid,
+					studentid = studentid,
+					classid = classid,
+					courseid = courseid
+				)
+	def loadSignal_from_tree(self, funcType):
+		courseName = self.database.course_table.find(id = self.COURSEID)[0][-1]
+		className = self.database.class_table.find(id = self.CLASSID)[0][1]
+		if funcType == 1:
+			print('导入学生')
+			self.loadStudentData(courseName, className)
+		else:
+			print('导入成绩')
+			examName = self.database.exam_table.find(id = self.EXAMID)[0][1]
+			self.loadData(courseName, className, examName, self.EXAMID)
 
 	def createRightMenu(self):
+		# 考试节点----导入成绩
 		currentItem = self.scoreTree.currentItem()
 		parent = currentItem.parent()
-		if parent == self.subjectTree:
+		if parent == self.course_Tree:
 			new_tip = '班级'
-			del_tip = '删除'
+			load_tip = ''
+			clear_tip = '班级'
 			funcType = 0
 		elif parent == self.class_Tree:
 			new_tip = '考试'
-			del_tip = '删除'
+			load_tip = '学生'
+			clear_tip = '考试'
 			funcType = 1
 		elif parent == self.exam_Tree:
 			new_tip = ''
-			del_tip = '删除'
+			load_tip = '成绩'
+			clear_tip = '成绩'
 			funcType = 2
-		elif currentItem == self.subjectTree:
+		elif currentItem == self.course_Tree:
 			new_tip = ''
-			del_tip = '清空'
-			funcType = 4
-		elif currentItem == self.class_Tree:
-			new_tip = ''
-			del_tip = '清空'
-			funcType = 5
-		elif currentItem == self.exam_Tree:
-			new_tip = ''
-			del_tip = '清空'
-			funcType = 6
+			load_tip = ''
+			clear_tip = ''
+			funcType = 3
+		else:
+			return
 
 		menu = QMenu(self.scoreTree)
 		menu.exec_(QCursor.pos())
+
 		new_action = QAction('新建{}'.format(new_tip),self.scoreTree)
-		delete_action = QAction(del_tip,self)
+		load_action = QAction('导入{}'.format(load_tip),self.scoreTree)
+		clear_action = QAction('清空{}'.format(clear_tip),self.scoreTree)
+		delete_action = QAction('删除',self.scoreTree)
 
 		new_action.triggered.connect(lambda:self.addNew_from_tree(funcType)) # 为动作添加事件
-		delete_action.triggered.connect(lambda:self.del_or_clear(funcType))
+		load_action.triggered.connect(lambda:self.loadSignal_from_tree(funcType))
+		delete_action.triggered.connect(lambda:self.del_or_clear(funcType, True))
+		clear_action.triggered.connect(lambda:self.del_or_clear(funcType, False))
 
 		if new_tip != '': # 非考试节点     # 将动作添加到右键菜单
 			menu.addAction(new_action)
-		menu.addAction(delete_action)
+		if load_tip != '':
+			menu.addAction(load_action)
+		menu.addAction(clear_action)
+		if clear_tip != '':
+			menu.addAction(delete_action)
 
 		new_action.setIcon(QIcon('./images/add1.ico'))  # 为动作添加图标
-		delete_action.setIcon(QIcon('./images/{}.ico'.format('del3' if del_tip == '删除' else 'clear')))
+		clear_action.setIcon(QIcon('./images/clear.ico'))
+		delete_action.setIcon(QIcon('./images/del3.ico'))
+		load_action.setIcon(QIcon('./images/{}.ico'.format('loadScore2' if load_tip=='成绩' else 's')))
 
 		menu.show()
 
 	def Check(self):#设置左边查看成绩单的参数，成绩查询接口函数
 		currentItem = self.scoreTree.currentItem()
-		if self.scoreTree.currentItem() in [self.subjectTree,self.class_Tree,self.exam_Tree]:
+		if self.scoreTree.currentItem() in [self.course_Tree,self.class_Tree,self.exam_Tree]:
 			return
 
 		parent = currentItem.parent()
@@ -1333,7 +1471,7 @@ class studentScoreManage(QMainWindow):
 		currentItem.setCheckState(0,Qt.Checked)
 		currentItem.setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
 
-		if parent == self.subjectTree:
+		if parent == self.course_Tree:
 			self.COURSEID = self.database.getCourseName()[1][currentItem.text(0)]
 			self.CLASSID = None
 			self.EXAMID = None
@@ -1499,29 +1637,27 @@ class studentScoreManage(QMainWindow):
 		self.scoreTree.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.scoreTree.customContextMenuRequested.connect(self.createRightMenu)
 
-		self.subjectTree = QTreeWidgetItem(self.scoreTree)               # 3
-		self.subjectTree.setText(0, '课程')
+		self.course_Tree = QTreeWidgetItem(self.scoreTree)               # 3
+		self.course_Tree.setText(0, '课程')
 		self.class_Tree = QTreeWidgetItem(self.scoreTree)               # 3
 		self.class_Tree.setText(0, '班级')
 		self.exam_Tree = QTreeWidgetItem(self.scoreTree)               # 3
 		self.exam_Tree.setText(0, '考试类别')
 
-		self.subjectTree.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
+		self.course_Tree.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 		self.class_Tree.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 		self.exam_Tree.setChildIndicatorPolicy(QTreeWidgetItem.ShowIndicator)
 
 		subjectlist, coursename_to_id = self.database.getCourseName() 
-		self.subjectItems = []
 		for i, c in enumerate(subjectlist):                     # 5
-		    item = QTreeWidgetItem(self.subjectTree)
+		    item = QTreeWidgetItem(self.course_Tree)
 		    item.setText(0, c)
 		    item.setCheckState(0, Qt.Unchecked)
-		    self.subjectItems.append(item)
-		self.classItems = []  
-		if self.subjectTree.childCount()!=0:
-			self.subjectTree.setExpanded(True)
+
+		if self.course_Tree.childCount()!=0:
+			self.course_Tree.setExpanded(True)
 		else:
-			self.subjectTree.setExpanded(False)
+			self.course_Tree.setExpanded(False)
 
 
 

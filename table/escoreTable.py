@@ -40,8 +40,13 @@ class EScore(QTableView):
 
     def find(self,**args):
         condition = []
-        for key, value in args.items():   
-            condition.append("{0}='{1}'".format(key,value))
+        for key, value in args.items(): 
+            if key == 'score_json':  
+                condition.append("{0}='{1}'".format(key,value))
+            else:
+                condition.append("{0}={1}".format(key, value))
+
+
         And = " and ".join(condition)
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
@@ -67,8 +72,12 @@ class EScore(QTableView):
 
     def delete(self,**args): # id or studentid + courseid + examid+ classid
         condition = []
-        for key, value in args.items():   
-            condition.append("{0}={1}".format(key,value))
+        for key, value in args.items(): 
+            if key == 'score_json':  
+                condition.append("{0}='{1}'".format(key,value))
+            else:
+                condition.append("{0}={1}".format(key, value))
+                
         And = " and ".join(condition)
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')

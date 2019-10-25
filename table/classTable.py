@@ -65,8 +65,8 @@ class Class(QTableView):
         model = QSqlQuery()
         model.exec_('PRAGMA foreign_keys = ON;')
         sql = "delete from class where id={}".format(id)
-        exec_res = model.exec_(sql)
-
+        res = model.exec_(sql)
+        return res
 
     def insert(self,className,course_id):
         model = QSqlQuery()
