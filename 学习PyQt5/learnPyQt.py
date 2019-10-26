@@ -1,55 +1,45 @@
+from PyQt5.QtCore import QObject , pyqtSignal
 
-from PyQt5.QtWidgets import*
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtPrintSupport import *
-class Window(QWidget):
-    def __init__(self, rows, columns):
-        QWidget.__init__(self)
-        self.table = QTableView(self)
-        model =  QStandardItemModel(rows, columns, self.table)
-        for row in range(rows):
-            for column in range(columns):
-                item = QStandardItem('(%d, %d)' % (row, column))
-                item.setTextAlignment(Qt.AlignCenter)
-                model.setItem(row, column, item)
-        self.table.setModel(model)
-        self.buttonPrint = QPushButton('Print', self)
-        self.buttonPrint.clicked.connect(self.handlePrint)
-        self.buttonPreview =QPushButton('Preview', self)
-        self.buttonPreview.clicked.connect(self.handlePreview)
-        layout =QGridLayout(self)
-        layout.addWidget(self.table, 0, 0, 1, 2)
-        layout.addWidget(self.buttonPrint, 1, 0)
-        layout.addWidget(self.buttonPreview, 1, 1)
+class SignalClass(QObject):
 
-    def handlePrint(self):
-        dialog = QPrintDialog()
-        if dialog.exec_() == QDialog.Accepted:
-            self.handlePaintRequest(dialog.printer())
+     # 声明无参数的信号
+    signal1 = pyqtSignal()
 
-    def handlePreview(self):
-        dialog = QPrintPreviewDialog()
-        dialog.paintRequested.connect(self.handlePaintRequest)
-        dialog.exec_()
+    # 声明带一个int类型参数的信号
+    signal2 = pyqtSignal(int)
 
-    def handlePaintRequest(self, printer):
-        document = QTextDocument()
-        cursor = QTextCursor(document)
-        model = self.table.model()
-        table = cursor.insertTable(
-            model.rowCount(), model.columnCount())
-        for row in range(table.rows()):
-            for column in range(table.columns()):
-                cursor.insertText(model.item(row, column).text())
-                cursor.movePosition(QTextCursor.NextCell)
-        document.print_(printer)
+    def __init__(self,parent=None):
+        super(SignalClass,self).__init__(parent)
 
-if __name__ == '__main__':
+        # 将信号signal1连接到sin1Call和sin2Call这两个槽函数
+        self.signal1.connect(self.sin1Call)
+        self.signal1.connect(self.sin2Call)
 
-    import sys
-    app = QApplication(sys.argv)
-    window = Window(25, 2)
-    window.resize(300, 400)
-    window.show()
-    sys.exit(app.exec_())
+        # 将信号signal2连接到信号signal1
+        self.signal2.connect(self.signal1)
+
+        # 发射信号
+        self.signal1.emit()
+        self.signal2.emit(1)
+
+        # 断开signal1、signal2信号与各槽函数的连接
+        self.signal1.disconnect(self.sin1Call)
+        self.signal1.disconnect(self.sin2Call)
+        self.signal2.disconnect(self.signal1)
+
+        # 将信号signal1和signal2连接到同一个槽函数sin1Call
+        self.signal1.connect(self.sin1Call)
+        self.signal2.connect(self.sin1Call)
+
+        # 再次发射信号
+        self.signal1.emit()
+        self.signal2.emit(1)
+
+    def sin1Call(self):
+        print("signal-1 emit")
+
+    def sin2Call(self):
+        print("signal-2 emit")
+
+if __name__ == '__main__':  
+    signal = SignalClass()

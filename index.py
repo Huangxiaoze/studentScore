@@ -262,7 +262,7 @@ class studentScoreManage(QMainWindow):
 			)
 		
 		
-		# headers,datas,weight_set = self.getTableData(
+		# headers,datas,weight_set = self.getScoreData(
 		# 	examName = examName,
 		# 	examDate = examDate,
 		# 	classid = classid,
@@ -277,8 +277,31 @@ class studentScoreManage(QMainWindow):
 		select = QMessageBox.information(parent,'添加考试','添加成功',QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
 			print("hahahhaha")
+	def getStudentData(self, **args): #班级确定 学号唯一
 
-	def getTableData(self, **args):#获取表数据
+		all_students = self.database.student_table.find(classid = args['classid'], course_id = args['courseid'])
+		student_id = {}
+		datas = []
+		headers = ['学号','姓名']
+		for student in all_students:
+			studentid = student[0]
+			number = student[1]
+			name = student[2]
+			datas.append((number, name))
+			student_id[number] = studentid
+
+		if 'sort_col' not in args.keys():
+			args['sort_col'] = 0
+		if 'reverse' not in args.keys():
+			args['reverse'] = False
+		if args['sort_col'] == 0:
+			datas = sorted(datas,key = lambda record:int(record[args['sort_col']]),reverse= args['reverse'])
+		elif args['sort_col']==1:
+			datas = sorted(datas,key = lambda record:record[args['sort_col']],reverse= args['reverse'])
+		
+		return headers, datas, student_id
+
+	def getScoreData(self, **args):#获取表数据
 		exam = self.database.exam_table.find(
 			examName= args['examName'],
 			classid=int(args['classid']),
@@ -327,13 +350,13 @@ class studentScoreManage(QMainWindow):
 		if 'reverse' not in args.keys():
 			args['reverse'] = False
 
-		if 'sort_col' in args.keys():
-			if args['sort_col'] == 0:
-				datas = sorted(datas,key = lambda record:int(record[args['sort_col']]),reverse= args['reverse'])
-			elif args['sort_col']==1:
-				datas = sorted(datas,key = lambda record:record[args['sort_col']],reverse= args['reverse'])
-			else:
-				datas = sorted(datas,key = lambda record:float(record[args['sort_col']]),reverse= args['reverse'])
+		if args['sort_col'] == 0:
+			datas = sorted(datas,key = lambda record:int(record[args['sort_col']]),reverse= args['reverse'])
+		elif args['sort_col']==1:
+			datas = sorted(datas,key = lambda record:record[args['sort_col']],reverse= args['reverse'])
+		else:
+			datas = sorted(datas,key = lambda record:float(record[args['sort_col']]),reverse= args['reverse'])
+		
 		return headers,datas,weight_set, student_id
 
 	def setGetClass(self,parent,combox):
@@ -546,25 +569,21 @@ class studentScoreManage(QMainWindow):
 		except:
 			QMessageBox.information(self,'导入失败','请检查文件类型是否正确')
 			return
-
-		x, coursename_to_id = self.database.getCourseName()
-		y, classname_to_id = self.database.getClassName()
 		
-		courseid = coursename_to_id[courseName]
-		classid = classname_to_id[className]
+		courseid = self.database.course_table.find(courseName = courseName)[0][0]
+		classid = self.database.class_table.find(className = className, course_id = courseid)[0][0]
 
 		for student in students:
 			# 该学生记录如果不存在则记录到数据库
-			if self.database.student_table.find(classid = classid, courseid = courseid, number = student[0]) == []:
+			if self.database.student_table.find(classid = classid, course_id = courseid, number = student[0]) == []:
 				self.database.student_table.insert(student[0], student[1], classid, courseid)
+			else:
+				print('exist')
 
-		headers = ['学号','姓名']
-		datas = []
-		for student in self.database.student_table.find(classid = classid,course_id = courseid):
-			datas.append((student[1],student[2]))
-		self.showScoreTable(headers,datas,None)
+		headers, datas, student_id = self.getStudentData(courseid = courseid, classid = classid)
+		self.showStudentTable(headers,datas, student_id)
 		QApplication.processEvents()
-		QMessageBox.information(self,'导入成功','!!!')
+		QMessageBox.information(self,'操作结果','导入成功')
 
 	def createClass(self, specific_course=None):
 		widget = QDialog(self)
@@ -668,138 +687,208 @@ class studentScoreManage(QMainWindow):
 			self.createClass(courseName)
 
 	def modifyScore(self): #修改成绩 可以知道，在changeRow中记录为True的行必定发生了改变
-		
-		modify = defaultdict(list)
-		add = defaultdict(list)
-		cover_row = []
-
-		print(self.record_colChange_inRow)
-		#获取整行都被更改过的行
-		for row, d in self.record_colChange_inRow.items():
-			if len(d) == len(self.TABLE_HEADERS) -1:
-				cover_row.append(row)
+		self.IS_USER_CHANGEITEM = False
+		modify = []
+		add = []
+		del_row = []
+		all_row = []
 		# 获取修改的行的数据
 		for row, record in self.changeRow.items():
 			if record: # 行被修改
-				data_record = [] 
-				for i in range(len(self.TABLE_HEADERS)-1):
-					new_data = self.MyTable.item(row,i).text()
-					data_record.append(new_data)
+				all_row.append(row)
 				if row>=len(self.TABLE_DATA): # 增加行
-					print('addData')
-					add[row] = data_record
-				else:                         # 修改行
-					print('modify data')
-					modify[row] = data_record
-				
+					add.append(row)
+				else:
+					count = 0
+					for i in range(len(self.TABLE_HEADERS)-1):
+						if self.Table.item(row, i).text() == '':
+							count+=1
+						else:
+							break
+					if count == len(self.TABLE_HEADERS)-1:
+						del_row.append(row)
+					else:
+						modify.append(row)
+			
+
 		print('modify:',modify)
 		print('add:',add)
-
+		print('del_row:',del_row)
+		
 		# 检查数据是否正确, 正确数据定义为，学号为整数，名字不为空， 成绩是合法的数字：+-1.0 +-1
 		# 根据self.TABLE_QUESTION_WEIGHT是否为None，可以判断此表是否是用于显示某一次成绩，如果是用于显示总成绩时不允许修改数据的。 
 		data_correct = True
-		del_row = []
-		for row, modify_data in modify.items():
-			if modify_data.count('') == len(self.TABLE_HEADERS)-1: # 没有数据代表此行是要被删除的行
-				del_row.append(row)
+		for row in all_row:
+			if row in del_row:
 				continue
-			for col, col_data in enumerate(modify_data):
-				if (col==0 and (not (processData.isInteger(col_data)))) or (col_data == '') or (2<=col<len(self.TABLE_DATA) and (not processData.isNum(col_data))):
-					data_correct = False
-					break
-			if not data_correct:
+			if not processData.isInteger(self.Table.item(row,0).text().strip()):
+				data_correct = False
 				break
-
-		print('modify checkout!')
-		if data_correct:
-			for row, add_data in add.items():
-				for col, col_data in enumerate(add_data):
-					if (col==0 and (not (processData.isInteger(col_data)))) or (col_data == '') or (2<=col<len(self.TABLE_DATA) and (not processData.isNum(col_data))):
+			elif self.Table.item(row,1).text().strip() == '':
+				data_correct = False
+				break
+			else:
+				for i in range(2, len(self.TABLE_HEADERS)-1):
+					if not processData.isNum(self.Table.item(row,i).text().strip()):
 						data_correct = False
 						break
 				if not data_correct:
 					break
-		print('add checkout')
 		if not data_correct:
-			QMessageBox.warning(self,'错误','请检查数据是否正确',QMessageBox.Ok)
+			self.IS_USER_CHANGEITEM = True	
+			QMessageBox.warning(self,'更新失败','请检查数据是否正确')
+			return
+		elif all_row == []:
+			self.IS_USER_CHANGEITEM = True
+			QMessageBox.information(self,'更新结果','数据没有发生改变')
 			return
 		else:
-			select = QMessageBox.information(self,'注意','确定保存？',QMessageBox.Ok|QMessageBox.Cancel)
-			if select == QMessageBox.Cancel: 
-				return
-			modify_result = ''
-			#数据全部是正确的
-				# 更改数据前提： 更改一条成绩记录，需要同时修改学生表和成绩表，先在学生表中添加记录，再在成绩表中添加记录
-				# 1 学号姓名改变需要更改学生表
-				# 2 成绩改变需要更改成绩表
-				# 3 都改变同时更改学生表，成绩表
-			# 如果是modify, 是否需要考虑用户修改的是不是学号？ 如果改变的是学号，是否会有重复？
-				# modify，当用户是删除数据时，行为空，但是，是否存在，用户删除了该行后，又新加了行，或者觉得删错了，又重新输入原始的数据，该行不会被记录在删除行中，而是在另一个记录修改的集合中
-			# modify 删除数据的话可以直接删除
-			# modify 修改数据呢？ 是否可以认为，该行学号与原始数据不同则代表新添加，如果用户是修改了学号呢？解决方案：此种情况属于覆盖原数据，则删除掉原数据，再新增加此行
-			
-			# 如果modify中的行在cover_row中，而不在del_row中，则执行覆盖操作，即删除原来的数据，增加新的数据
-			# 如果modify中的行同时存在于del_row和cover_row中，则执行删除操作
-			# 如果都不在，则执行修改操作
-			print('整行被修改：',cover_row)
-			print('删除的行：', del_row)
-			print(self.TABLE_DATA)
-			print(self.STUDENT_ID)
-			for row, modify_data in modify.items():
-				number = self.TABLE_DATA[row][0]
-				if (row in cover_row) and (row not in del_row): # 覆盖操作定义为，将该名学生从该课程该班级中删除，并删除其成绩，然后根据数据，添加新的学生和新的成绩
-					print('执行覆盖操作：',modify_data)  #覆盖操作包括 删除和新添加，
-					#由于主外键的约束，需要将先将该学生的所有考试成绩记录删除，才可以在学生表删除该学生记录
-					res = self.database.escore_table.delete(
-							studentid= self.STUDENT_ID[number],
-							classid=self.CLASSID,
-							courseid=self.COURSEID
-						)
-					print('删除考试成绩操作结果：',res)
-					res = self.database.student_table.delete(id=self.STUDENT_ID[number])
-
-					# 添加新数据
-					number = modify_data[0]
-					name = modify_data[1]
-					self.database.student_table.insert(
-						number=number,
-						name=name,
-						classid=self.CLASSID,
+			check_number_index = [i for i in range(len(self.TABLE_DATA))]
+			check_number_index.extend(add)
+			student_numbers = []
+			for row in check_number_index:
+				number = self.Table.item(row, 0).text().strip()
+				if number not in student_numbers:
+					student_numbers.append(number)
+				else:
+					items = self.Table.findItems(number, Qt.MatchExactly)#遍历表查找对应的item
+					repeat_rows = list(set([item.row() for item in items]))
+					for r in repeat_rows:
+						self.Table.item(r,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
+						self.Table.item(r,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
+					self.IS_USER_CHANGEITEM = True
+					QMessageBox.warning(self,'更改失败','学号不能重复')
+					return
+			# 学号不重复， 数据也是正确的
+			for row in add:
+				number = self.Table.item(row,0).text().strip()
+				name = self.Table.item(row,1).text().strip()
+				score_json = {}
+				for i in range(2,len(self.TABLE_HEADERS)-1):
+					score_json[self.TABLE_HEADERS[i]] = self.Table.item(row, i).text().strip()
+				self.database.student_table.insert(number, name ,self.CLASSID, self.COURSEID)
+				studentid = self.database.student_table.find(
+						number = number,
+						name = name, 
+						classid = self.CLASSID,
 						course_id = self.COURSEID
+					)[0][0]
+
+				self.database.escore_table.insert(self.EXAMID, studentid, self.CLASSID, self.COURSEID, json.dumps(score_json))
+			for row in del_row:
+				self.database.escore_table.delete(
+						examid = self.EXAMID,
+						studentid = self.STUDENT_ID[self.TABLE_DATA[row][0]],
+						classid = self.CLASSID,
+						courseid = self.COURSEID
 					)
-					studentid = self.database.student_table.find(
-							number = number,
-							name = name,
-							classid=self.CLASSID,
-							course_id = self.COURSEID
-						)[0][0]
-					score = {}
-					for i in range(2,len(self.TABLE_HEADERS)-1):
-						score[self.TABLE_HEADERS[i]] = modify_data[i]
-					self.database.escore_table.insert(
-							examid = self.EXAMID,
-							studentid = studentid,
-							classid = self.CLASSID,
+			for row in modify:
+				number = self.Table.item(row,0).text().strip()
+				name = self.Table.item(row,1).text().strip()
+				studentid = self.STUDENT_ID[self.TABLE_DATA[row][0]]
+				self.database.student_table.update(id = studentid, number = number, name=name)
+				score_json = {}
+				for i in range(2,len(self.TABLE_HEADERS)-1):
+					score_json[self.TABLE_HEADERS[i]] = self.Table.item(row, i).text().strip()
+				escore_id = self.database.escore_table.find(
+						examid = self.EXAMID,
+						studentid = studentid,
+						classid = self.CLASSID,
+						courseid = self.COURSEID
+					)[0][0]
+				self.database.escore_table.update(id = escore_id, score_json = json.dumps(score_json))
+
+			headers,datas,weight_set,student_id = self.getScoreData(
+				examName = self.EXAMNAME,
+				classid = self.CLASSID,
+				courseid = self.COURSEID
+			)
+			self.showScoreTable(headers,datas,student_id,weight_set)
+
+		self.IS_USER_CHANGEITEM = True		
+		return
+
+	def modifyStudent(self):
+		modify = []
+		add = []
+		del_row = []
+		all_row = []
+		self.IS_USER_CHANGEITEM = False
+		for row, isModify in self.changeRow.items():
+			if isModify:
+				all_row.append(row)
+				if row>=len(self.TABLE_DATA):
+					add.append(row)
+				else:
+					if self.Table.item(row,0).text()=='' and self.Table.item(row,1).text()=='':
+						del_row.append(row)
+					else:
+						modify.append(row)
+		data_correct = True
+		# 检查数据是否符合定义
+		for row in all_row:
+			if row in del_row:
+				continue
+			if not processData.isInteger(self.Table.item(row,0).text().strip()):
+				self.Table.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+				data_correct = False
+				break
+			elif self.Table.item(row,1).text().strip() == '':
+				self.Table.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+				data_correct = False
+				break
+		if not data_correct:
+			self.IS_USER_CHANGEITEM = True
+			QMessageBox.warning(self,'更改失败','请检查数据是否正确')
+			return
+		elif modify == [] and add == [] and del_row == []:
+			self.IS_USER_CHANGEITEM = True
+			QMessageBox.information(self,'更改操作','数据没有发生改变')
+			return
+		else:
+			check_number_index = [i for i in range(len(self.TABLE_DATA))]
+			check_number_index.extend(add)
+			student_numbers = []
+			for row in check_number_index:
+				number = self.Table.item(row, 0).text().strip()
+				if number not in student_numbers:
+					student_numbers.append(number)
+				else:
+					items = self.Table.findItems(number, Qt.MatchExactly)#遍历表查找对应的item
+					repeat_rows = list(set([item.row() for item in items]))
+					for r in repeat_rows:
+						self.Table.item(r,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
+						self.Table.item(r,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
+					self.IS_USER_CHANGEITEM = True
+					QMessageBox.warning(self,'更改失败','学号不能重复')
+					return
+			# 学号不是重复的,数据也是正确的 do something
+			for r in add:
+				number = self.Table.item(r,0).text().strip()
+				name = self.Table.item(r,1).text().strip()
+				self.database.student_table.insert(number,name,self.CLASSID, self.COURSEID)
+			for r in modify:
+				number = self.Table.item(r,0).text().strip()
+				name = self.Table.item(r,1).text().strip()
+				studentid = self.STUDENT_ID[self.TABLE_DATA[r][0]]
+				self.database.student_table.update(id = studentid, number = number, name=name)
+			
+			all_exam = self.database.exam_table.find(classid = self.CLASSID, courseid = self.COURSEID)
+			examids = [exam[0] for exam in all_exam]
+			for r in del_row:
+				studentid = self.STUDENT_ID[self.TABLE_DATA[r][0]]
+				for examid in examids:
+					self.database.escore_table.delete(
+							examid = examid,
 							courseid = self.COURSEID,
-							score_json = json.dumps(score)
+							classid = self.CLASSID,
+							studentid = studentid
 						)
-
-				elif (row in cover_row) and (row in del_row): # 此处的删除操作仅仅是将该学生的成绩记录删除，并没有将其从该班级和该课程中删除
-					print('执行删除操作：',modify_data)  #删除即可,注意，删除该学生成绩不应该删除该名学生？
-					res = self.database.escore_table.delete(
-							examid=self.EXAMID, 
-							studentid= self.STUDENT_ID[number],
-							classid=self.CLASSID,
-							courseid=self.COURSEID
-						)
-					print('操作结果：',res)
-				elif (row not in cover_row) and (row not in del_row):
-					print('执行修改操作：',modify_data) # 修改即可
-
-			#如果是add，需要考虑该名学生的成绩是否已经存在，如果是已经存在，却增加则会出现错误
-			for row, addData in add.items():
-				print('add new examScore:',addData)
-		print("-"*100)
+				self.database.student_table.delete(id = studentid)
+			headers, datas, studentid = self.getStudentData(classid = self.CLASSID, courseid = self.COURSEID)
+			self.showStudentTable(headers, datas, studentid)
+			self.IS_USER_CHANGEITEM = True
+			QMessageBox.information(self,'更改结果','更改成功')
 
 	def modifyTable(self):
 		"""
@@ -809,13 +898,17 @@ class studentScoreManage(QMainWindow):
 			print('user modify')
 		if not self.IS_USER_CHANGEITEM:
 			return
+
 		self.IS_USER_CHANGEITEM = False
+
 		#需要考虑 此处会再次引发itemChanged事件, 目前解决方案，使用 IS_USER_CHANGEITEM标记是否是用户改变表格
-		row = self.MyTable.currentRow()     # 获取当前单元格所在的行
-		col = self.MyTable.currentColumn()  # 获取当前单元格所在的列
-		currentItem = self.MyTable.item(row,col) # 获取当前单元格
+		row = self.Table.currentRow()     # 获取当前单元格所在的行
+		col = self.Table.currentColumn()  # 获取当前单元格所在的列
+		currentItem = self.Table.item(row,col) # 获取当前单元格
+		print(row, col)
 		if currentItem: #单元格对象QTableWidgetItem存在
-			# 保存修改		是否需要？
+			
+			# 保存修改 -> 是否需要？
 			if row >= len(self.TABLE_DATA) : 
 				self.addRow[row-len(self.TABLE_DATA)][col] = currentItem.text()
 			else:
@@ -825,29 +918,39 @@ class studentScoreManage(QMainWindow):
 			isDel = False # 当此次修改是已存在的数据时，用于判断此次操作是否是删除某一行
 			
 			if row >= len(self.TABLE_DATA):# 该新增行不为空,新增行 添加、修改 两种操作
-				for i in range(len(self.TABLE_HEADERS)-1):
-					if self.MyTable.item(row, i).text() != '': 
-						valid = True
-						break
+				if self.modify_score_button.isVisible():
+					for i in range(len(self.TABLE_HEADERS)-1):
+						if self.Table.item(row, i).text() != '': 
+							valid = True
+							break
+				else:
+					for i in range(len(self.TABLE_HEADERS)):
+						if self.Table.item(row, i).text() != '': 
+							valid = True
+							break
 			else: # 此次更改的行是已存在的行，对于已经存在的行，则分 修改、删除、覆盖 三种操作
 				valid = True
 				count = 0
-				if col not in self.record_colChange_inRow[row]: #记录该行被修改的列,当某一行被修改的列数等于有效列数（非总成绩列）之和时，代表该行执行覆盖操作
-					self.record_colChange_inRow[row].append(col)
-
-				for i in range(len(self.TABLE_HEADERS)-1):
-					if self.MyTable.item(row,i).text() == '':
-						count+=1
-				if count == len(self.TABLE_HEADERS)-1:
-					isDel = True
+				if self.modify_score_button.isVisible():
+					for i in range(len(self.TABLE_HEADERS)-1):
+						if self.Table.item(row,i).text() == '':
+							count+=1
+					if count == len(self.TABLE_HEADERS)-1:
+						isDel = True
+				else:
+					for i in range(len(self.TABLE_HEADERS)):
+						if self.Table.item(row,i).text() == '':
+							count+=1
+					if count == len(self.TABLE_HEADERS):
+						isDel = True
 				
 			self.changeRow[row] = valid
 
 			# 该行不记录, 恢复正常颜色提示
 			if not valid: 
 				for i in range(len(self.TABLE_HEADERS)): 
-					self.MyTable.item(row,i).setText('')
-					self.MyTable.item(row,i).setBackground(QBrush(QColor('#474646')))
+					self.Table.item(row,i).setText('')
+					self.Table.item(row,i).setBackground(QBrush(QColor('#BFB8B8')))
 				self.IS_USER_CHANGEITEM = True
 				return
 
@@ -855,58 +958,83 @@ class studentScoreManage(QMainWindow):
 			if isDel: 
 				# 如果是删除已存在的行，则将背景提示为删除,
 				for i in range(len(self.TABLE_HEADERS)): 
-					self.MyTable.item(row,len(self.TABLE_HEADERS)-1).setText('')
-					self.MyTable.item(row,i).setBackground(QBrush(QColor(self.setting['table']['table_delRow'])))
+					self.Table.item(row,i).setText('')
+					self.Table.item(row,i).setBackground(QBrush(QColor(self.setting['table']['table_delRow'])))
 				self.IS_USER_CHANGEITEM = True
 				return
 
-			total = 0.0
-			total_is_valid = False
-			for col_ in range(0, len(self.TABLE_HEADERS)-1): #检查该行数据是否合法,并计算总成绩
-				if 2<= col_ <len(self.TABLE_HEADERS) and self.TABLE_QUESTION_WEIGHT!=None: #修改成绩
-					print('modify score')
-					if not processData.isNum(self.MyTable.item(row,col_).text()):# 数据如果不正确,将单元格填充为红色
-						self.MyTable.item(row,col_).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
-					else:														# 数据正确，计算总成绩
-						total_is_valid = True
-						total = Decimal(str(total)) + Decimal(str(self.MyTable.item(row,col_).text()))*self.TABLE_QUESTION_WEIGHT[col_-2]/100
-						self.MyTable.item(row,col_).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
-				elif col_== 0:#修改学号
-					print('modify stunumbr')
-					if not (processData.isInteger(self.MyTable.item(row,0).text())):
-						self.MyTable.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+			if not self.modify_score_button.isVisible(): #处于修改学生信息状态
+				print('modify sutdent message')
+				if col == 0:
+					if not (processData.isInteger(currentItem.text())):
+						currentItem.setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
 					else:
-						self.MyTable.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
-				elif col_== 1:#修改姓名
-					print('modify name')
-					if self.MyTable.item(row,1).text() == '':
-						self.MyTable.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+						currentItem.setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
+				else:
+					if currentItem.text() == '':
+						currentItem.setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
 					else:
-						self.MyTable.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
-		
-		self.MyTable.item(row,len(self.TABLE_HEADERS)-1).setText(str(total) if total_is_valid else '')
+						currentItem.setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
+
+			else:# 处于修改成绩表格状态
+				print('modify score')
+				total = 0.0
+				total_is_valid = False
+				for col_ in range(0, len(self.TABLE_HEADERS)-1): #检查该行数据是否合法,并计算总成绩
+					if 2<= col_ <len(self.TABLE_HEADERS) and self.TABLE_QUESTION_WEIGHT!=None: #修改成绩
+						print('modify score')
+						if not processData.isNum(self.Table.item(row,col_).text()):# 数据如果不正确,将单元格填充为红色
+							self.Table.item(row,col_).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+						else:														# 数据正确，计算总成绩
+							total_is_valid = True
+							total = Decimal(str(total)) + Decimal(str(self.Table.item(row,col_).text()))*self.TABLE_QUESTION_WEIGHT[col_-2]/100
+							self.Table.item(row,col_).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
+					elif col_== 0:#修改学号
+						print('modify stunumbr')
+						if not (processData.isInteger(self.Table.item(row,0).text())):
+							self.Table.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+						else:
+							self.Table.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
+					elif col_== 1:#修改姓名
+						print('modify name')
+						if self.Table.item(row,1).text() == '':
+							self.Table.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+						else:
+							self.Table.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
+			
+				self.Table.item(row,len(self.TABLE_HEADERS)-1).setText(str(total) if total_is_valid else '')
+	
 		self.IS_USER_CHANGEITEM = True
 
 
 	def clickTableHeader(self): # 目前只是简单实现了排序，假设如下：1 用户选择了课程、班级、考试  2 用户处于非查看总成绩状态
-		currentColumn = self.MyTable.currentColumn()
+		currentColumn = self.Table.currentColumn()
 		if currentColumn != self.CURRENTCOL:
 			self.CURRENTCOL = currentColumn
 			self.REVERSE = False
 		else:
 			self.REVERSE = not self.REVERSE
-		horizontalHeader = self.MyTable.horizontalHeader()
+		horizontalHeader = self.Table.horizontalHeader()
 		horizontalHeader.setSortIndicator(self.CURRENTCOL,Qt.DescendingOrder if self.REVERSE else Qt.AscendingOrder)
 		horizontalHeader.setSortIndicatorShown(True);
-		headers,datas,weight_set,student_id = self.getTableData(
-			examName = self.EXAMNAME,
-			classid = self.CLASSID,
-			courseid = self.COURSEID,
-			sort_col = self.CURRENTCOL,
-			reverse = self.REVERSE
-		)
 		r = self.REVERSE
-		self.showScoreTable(headers,datas,student_id,weight_set)
+		if self.modify_score_button.isVisible():
+			headers,datas,weight_set,student_id = self.getScoreData(
+				examName = self.EXAMNAME,
+				classid = self.CLASSID,
+				courseid = self.COURSEID,
+				sort_col = self.CURRENTCOL,
+				reverse = self.REVERSE
+			)
+			self.showScoreTable(headers,datas,student_id,weight_set)
+		else:
+			headers, datas, student_id = self.getStudentData(
+				classid = self.CLASSID,
+				courseid = self.COURSEID,
+				sort_col = self.CURRENTCOL,
+				reverse = self.REVERSE
+				)
+			self.showStudentTable(headers, datas, student_id)
 		self.CURRENTCOL = currentColumn
 		self.REVERSE = r
 
@@ -917,60 +1045,76 @@ class studentScoreManage(QMainWindow):
 		checkScore_button.setStyleSheet('border-radius:6px;border:1px solid black;background:black;padding:6px;')
 		checkScore_button.clicked.connect(self.watch_total_score)
 
-		modify_score_button = QPushButton("更改成绩",self.midwidget)
-		modify_score_button.move(190,10)
-		modify_score_button.clicked.connect(self.modifyScore)
+		self.modify_score_button = QPushButton("更改成绩",self.midwidget)
+		self.modify_score_button.move(190,10)
+		self.modify_score_button.clicked.connect(self.modifyScore) # 
+		self.modify_score_button.setVisible(False)
 
-		self.MyTable = QTableWidget(self.midwidget)
-		self.MyTable.itemChanged.connect(self.modifyTable)
-		self.MyTable.horizontalHeader().sectionClicked.connect(self.clickTableHeader)
+		self.modify_student_button = QPushButton('更改学生',self.midwidget)
+		self.modify_student_button.move(190, 10)
+		self.modify_student_button.clicked.connect(self.modifyStudent)
+		self.modify_student_button.setVisible(False)
 
-		self.MyTable.move(0,50)
+		self.Table = QTableWidget(self.midwidget)
+		self.Table.horizontalHeader().sectionClicked.connect(self.clickTableHeader)
+		self.Table.itemChanged.connect(self.modifyTable)   # 处于显示成绩状态
+
+		self.Table.setContextMenuPolicy(Qt.CustomContextMenu)
+		self.Table.customContextMenuRequested.connect(self.createRightMenu_for_table)
+
+		self.Table.move(0,50)
 		headers = ['ID','学号','姓名','班级ID','课程ID']
-		self.showScoreTable(headers,self.database.student_table.find(),None)#可删除， 无用代码
+		self.display_table(headers,self.database.student_table.find(),None)#可删除， 无用代码
 
 	def showScoreTable(self,headers:'表头数据 list', datas, student_id, weights=None):#显示成绩表
-		if datas!=[] and len(headers)<len(datas[0]):
-			headers.append('成绩')
-		self.MyTable.clear()
-
+		self.modify_score_button.setVisible(True)
+		self.modify_student_button.setVisible(False)
+		headers.append('成绩')
 		self.TABLE_QUESTION_WEIGHT = None  #题型所占的权重
+		ItemIsEnabled = False
 		if weights:
 			self.TABLE_QUESTION_WEIGHT = weights
-		self.addRow = [["" for j in range(len(headers))] for i in range(self.setting['table']['table_addRow'])]
-		self.changeRow = {i:False for i in range(len(datas)+self.setting['table']['table_addRow'])}
-		self.record_colChange_inRow = {i:list() for i in range(len(datas))} #用于记录已存在数据改动的列
-		self.IS_USER_CHANGEITEM = False
-		self.TABLE_HEADERS = headers
-		self.TABLE_DATA = datas
-		self.STUDENT_ID = student_id
-		self.CURRENTCOL = 0 #记录当前排序的列
-		self.REVERSE = False  #记录当前顺序
-		self.TABLE_DATA_COPY = [list(d) for d in datas]#用于记录修改的成绩以及和一开始的成绩比较，查看数据是否有变动
-
-		self.MyTable.setColumnCount(len(headers))
-		self.MyTable.setRowCount(len(datas)+self.setting['table']['table_addRow'])
-		self.MyTable.setHorizontalHeaderLabels(headers)
-		self.display_exam(datas)
-		self.IS_USER_CHANGEITEM = True
+			ItemIsEnabled = True
+		self.display_table(headers, datas, student_id, ItemIsEnabled)
 		QApplication.processEvents()
 
+	def showStudentTable(self, headers, datas, student_id):
+		self.modify_score_button.setVisible(False)
+		self.modify_student_button.setVisible(True)
+		self.display_table(headers, datas, student_id)
 
-	def display_exam(self,datas):
+	def display_table(self,headers, datas , student_id, ItemIsEnabled = False):
+		self.IS_USER_CHANGEITEM = False  # 标记是否是用户改变表格 
+		self.addRow = [["" for j in range(len(headers))] for i in range(self.setting['table']['table_addRow'])] # 用于保存新增行中的数据
+		self.changeRow = {i:False for i in range(len(datas)+self.setting['table']['table_addRow'])} 			# 用于记录被修改过的行
+		self.record_colChange_inRow = {i:list() for i in range(len(datas))} 									# 用于记录某行被修改的列
+		self.STUDENT_ID = student_id                    # 学生ID  
+		self.TABLE_HEADERS = headers 					# 表头数据
+		self.TABLE_DATA = datas  						# 表格原始数据
+		self.TABLE_DATA_COPY = [list(d) for d in datas]	# 用于记录修改的成绩以及和一开始的成绩比较，查看数据是否有变动
+		self.CURRENTCOL = 0                				# 记录当前排序的列
+		self.REVERSE = False               				# 记录当前顺序
+		self.Table.clear()							# 清空表格数据
+		self.Table.setColumnCount(len(headers))
+		self.Table.setRowCount(len(datas)+self.setting['table']['table_addRow'])
+		self.Table.setHorizontalHeaderLabels(headers)
+
 		for i, item in enumerate(datas):
 			for j, data in enumerate(item):
 				node = QTableWidgetItem(str(data))
 				node.setTextAlignment(Qt.AlignCenter)
-				self.MyTable.setItem(i,j,node)
-				if self.TABLE_QUESTION_WEIGHT!=None and j==len(item)-1: #禁止修改总成绩
+				self.Table.setItem(i,j,node)
+				if ItemIsEnabled and j==len(item)-1: #禁止修改总成绩
 					node.setFlags(Qt.ItemIsEnabled)
 		for i, item in enumerate(self.addRow):
 			for j, data in enumerate(item):
 				node = QTableWidgetItem(str(data))
 				node.setTextAlignment(Qt.AlignCenter)
-				self.MyTable.setItem(i+len(datas),j,node)
-				if self.TABLE_QUESTION_WEIGHT!=None and j==len(item)-1:
+				self.Table.setItem(i+len(datas),j,node)
+				if j==len(item)-1 and ItemIsEnabled:
 					node.setFlags(Qt.ItemIsEnabled)
+		self.IS_USER_CHANGEITEM = True
+
 	def loadData_getClass(self):
 		if self.load_courseCombox.currentText() == '': # 不存在任何课程
 			return
@@ -1085,7 +1229,6 @@ class studentScoreManage(QMainWindow):
 		self.courseid = self.database.course_table.find(courseName = courseName)[0][0]
 		self.classid = self.database.class_table.find(className=className, course_id = self.courseid)[0][0]
 		self.load_examid = self.database.exam_table.find(examName = examName, courseid = self.courseid, classid = self.classid)[0][0]
-		print(self.courseid, self.classid,self.load_examid)
 		# return
 		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
 
@@ -1099,7 +1242,7 @@ class studentScoreManage(QMainWindow):
 			self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
 		for student in s_sub_d:
 			student = list(student)
-			student.extend([0 for i in range(len(cols)-2)])
+			student.extend(['0' for i in range(len(cols)-2)])
 			datas.append(tuple(student))
 
 		#更新学生表以获得id
@@ -1118,7 +1261,6 @@ class studentScoreManage(QMainWindow):
 			scores.append(s)
 
 			#学生成绩如果已经存在的情况则变成修改
-			print('here')
 			exam_score = self.database.escore_table.find(examid = self.load_examid,studentid = int(student_dict[s_score[0]]),classid= int(self.classid),courseid = int(self.courseid))
 			if exam_score!=[]:
 				self.database.escore_table.update(exam_score[0][0],score_json = json.dumps(score))
@@ -1126,7 +1268,7 @@ class studentScoreManage(QMainWindow):
 				self.database.escore_table.insert(int(self.load_examid),int(student_dict[s_score[0]]),int(self.classid),int(self.courseid),json.dumps(score))
 		
 		#显示成绩
-		headers,s_datas,weight_set, student_id = self.getTableData(
+		headers,s_datas,weight_set, student_id = self.getScoreData(
 					examName = examName,
 					classid = self.classid,
 					courseid = self.courseid,
@@ -1403,8 +1545,14 @@ class studentScoreManage(QMainWindow):
 			print('导入成绩')
 			examName = self.database.exam_table.find(id = self.EXAMID)[0][1]
 			self.loadData(courseName, className, examName, self.EXAMID)
-
-	def createRightMenu(self):
+	def createRightMenu_for_table(self):
+		print("hello")
+		menu = QMenu(self.Table)
+		menu.exec_(QCursor.pos())
+		del_action = QAction('删除',self.Table)
+		menu.addAction(del_action)
+		menu.show()
+	def createRightMenu_for_tree(self):
 		# 考试节点----导入成绩
 		currentItem = self.scoreTree.currentItem()
 		parent = currentItem.parent()
@@ -1472,6 +1620,8 @@ class studentScoreManage(QMainWindow):
 		currentItem.setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
 
 		if parent == self.course_Tree:
+			self.modify_score_button.setVisible(False)
+			self.modify_student_button.setVisible(False)
 			self.COURSEID = self.database.getCourseName()[1][currentItem.text(0)]
 			self.CLASSID = None
 			self.EXAMID = None
@@ -1510,12 +1660,14 @@ class studentScoreManage(QMainWindow):
 					self.exam_Tree.setExpanded(True)
 				else:
 					self.exam_Tree.setExpanded(False)
+				headers, datas, studentid = self.getStudentData(courseid = self.COURSEID, classid = self.CLASSID)
+				self.showStudentTable(headers, datas, studentid)
 		else:
 			if self.COURSEID!=None and self.CLASSID !=None:
 				self.EXAMNAME = currentItem.text(0)
 				self.EXAMID = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)[1][currentItem.text(0)]
 				
-				headers,datas,weight_set,student_id = self.getTableData(
+				headers,datas,weight_set,student_id = self.getScoreData(
 					examName = currentItem.text(0),
 					classid = self.CLASSID,
 					courseid = self.COURSEID,
@@ -1535,7 +1687,7 @@ class studentScoreManage(QMainWindow):
 		self.database.exam_table.update(self.EXAMID,weight_set = "-".join(values),exam_weight = examweight)
 		
 		#显示成绩
-		headers,datas,weight_set,student_id = self.getTableData(
+		headers,datas,weight_set,student_id = self.getScoreData(
 		examName = self.EXAMNAME,
 		classid = self.CLASSID,
 		courseid = self.COURSEID,
@@ -1635,7 +1787,7 @@ class studentScoreManage(QMainWindow):
 		self.EXAMID = None
 
 		self.scoreTree.setContextMenuPolicy(Qt.CustomContextMenu)
-		self.scoreTree.customContextMenuRequested.connect(self.createRightMenu)
+		self.scoreTree.customContextMenuRequested.connect(self.createRightMenu_for_tree)
 
 		self.course_Tree = QTreeWidgetItem(self.scoreTree)               # 3
 		self.course_Tree.setText(0, '课程')
@@ -1788,13 +1940,13 @@ class studentScoreManage(QMainWindow):
 			self.searchRow(self.search_rows[self.scrollIndex],'#BFB8B8')#恢复表格正常的颜色
 			self.scrollIndex -= 1                                         #获取其行号
 			self.searchRow(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
-			self.MyTable.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+			self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
 	
 	def searchRow(self, row, backgroundcolor=''):
 		temp = self.IS_USER_CHANGEITEM
 		self.IS_USER_CHANGEITEM = False
 		for i in range(len(self.TABLE_HEADERS)):
-			self.MyTable.item(row,i).setBackground(QBrush(QColor(backgroundcolor)))
+			self.Table.item(row,i).setBackground(QBrush(QColor(backgroundcolor)))
 		self.IS_USER_CHANGEITEM = temp
 
 	def total_search_Res(self):
@@ -1820,7 +1972,7 @@ class studentScoreManage(QMainWindow):
 		
 		self.scrollIndex+=1
 		self.searchRow(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
-		self.MyTable.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+		self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
 
 	def showSearch(self):
 		self.searchFrame.setVisible(True)
@@ -1834,7 +1986,7 @@ class studentScoreManage(QMainWindow):
 
 	def findRes(self):
 		search_content = self.search_lineEdit.text().strip()
-		items =self.MyTable.findItems(search_content, Qt.MatchExactly)#遍历表查找对应的item
+		items = self.Table.findItems(search_content, Qt.MatchExactly)#遍历表查找对应的item
 		if self.search_rows!=[]:
 			for row in self.search_rows:
 				self.searchRow(row,'#BFB8B8')#恢复表格正常的颜色
@@ -1895,14 +2047,22 @@ class studentScoreManage(QMainWindow):
 	def resizeEvent(self,event):
 		self.scoreTree.resize(200,self.height())
 		self.splitter.resize(self.width(),self.height()-self.setting['splitter']['splitter_y'])
-		self.MyTable.resize(900,self.height()-200)
+		self.Table.resize(900,self.height()-200)
 		self.searchFrame.resize(self.width(), self.setting['search']["height"])
 		self.searchFrame.move(0, self.height()-self.setting["search"]["height"])
 
 	def keyPressEvent(self,event):
-		if event.key() == Qt.Key_F:
-			if QApplication.keyboardModifiers() == Qt.ControlModifier:
+		"""
+		键盘事件，设置快捷键
+		"""
+		if QApplication.keyboardModifiers() == Qt.ControlModifier:
+			if event.key() == Qt.Key_F:
 				self.showSearch()
+			if event.key() == Qt.Key_S:
+				if self.modify_student_button.isVisible():
+					self.modifyStudent()
+				elif self.modify_score_button.isVisible():
+					self.modifyScore()
 		elif event.key() == Qt.Key_Escape:
 			self.hideSearch()
 
