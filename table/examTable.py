@@ -52,7 +52,6 @@ class Exam(QTableView):
             sql = 'select * from exam where {};'.format(And)
         else:
             sql = 'select * from exam'
-        print(sql)
         model.exec_(sql)
         res = []
         while model.next():

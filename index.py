@@ -31,10 +31,6 @@ class studentScoreManage(QMainWindow):
 		super().__init__()
 		self.initDataBase()
 		self.initWindow()
-		window_pale = QPalette() 
-		window_pale.setBrush(self.backgroundRole(),QBrush(QPixmap("./th.jpg"))) 
-		self.setPalette(window_pale)
-		#time.sleep(2)
 		self.show()
 		splash.finish(self)
 
@@ -48,6 +44,15 @@ class studentScoreManage(QMainWindow):
 		"""
 		初始化窗口
 		"""
+		window_pale = QPalette() 
+		window_pale.setBrush(self.backgroundRole(),QBrush(QPixmap("./2.jpg"))) 
+		desktop = QApplication.desktop()
+		screenRect = desktop.screenGeometry()
+		height = screenRect.height()
+		width = screenRect.width()
+		print(height, width)
+		
+		self.setPalette(window_pale)
 		self.resize(1620,650)
 		self.setWindowIcon(QIcon('./windowIcon.png'))
 		self.setWindowTitle('成绩管理')
@@ -72,6 +77,7 @@ class studentScoreManage(QMainWindow):
 		self.initrightwidget()
 		self.initMenu()
 		self.initSearchWindow()
+
 		
 	def initrightwidget(self):
 		"""
@@ -268,7 +274,7 @@ class studentScoreManage(QMainWindow):
 		# 	classid = classid,
 		# 	courseid = courseid,
 		# 	)
-		# self.showScoreTable(headers,datas)
+		# self.show_single_score(headers,datas)
 		item = QTreeWidgetItem(self.exam_Tree)
 		item.setText(0,examName)
 		item.setCheckState(0, Qt.Unchecked)
@@ -309,7 +315,7 @@ class studentScoreManage(QMainWindow):
 			)
 
 		if exam!=[]:
-			examid = int(exam[0][0])
+			examid = exam[0][0]
 			question_name = exam[0][-2].split('<|>')
 			weight_set = list(map(int,exam[0][-1].split('-')))
 
@@ -334,16 +340,25 @@ class studentScoreManage(QMainWindow):
 					classid = int(args['classid']),
 					courseid = int(args['courseid'])
 				)
-
-			if score!=[] and score[-1]!="":
+			res = [number,name]
+			if score!=[] and score[-1]!="":  #成绩记录存在
 				score_data = json.loads(score[0][-1]) #获取成绩
-				res = [number,name]
 				mark = 0     							#计算总成绩
+				mark_isValid = False
 				for i,qname in enumerate(question_name):
-					res.append(score_data[qname])
-					mark+=Decimal(str(score_data[qname]))*weight_set[i]/100
-				res.append(str(mark))
-				datas.append(res)
+					if score_data[qname]!=None:   # 成绩存在的话，计算到总和
+						res.append(score_data[qname])
+						mark+=Decimal(str(score_data[qname]))*weight_set[i]/100
+						mark_isValid = True
+					else:   # 成绩不存在的话，直接在后面加''以用于显示
+						res.append('')
+				if mark_isValid:
+					res.append(str(mark))
+				else:
+					res.append('')
+			else: #成绩记录不存在
+				res.extend(['' for i in range(len(question_name)+1)])
+			datas.append(res)
 
 		if 'sort_col' not in args.keys():
 			args['sort_col'] = 0
@@ -456,8 +471,8 @@ class studentScoreManage(QMainWindow):
 
 		#界面初始化完成后，再添加课程下拉选择框的内容，这样就可以触发事件初始化其它数据
 		if courseName==None and className==None:
-			self.createexam_courseCombox.addItems(subjectlist)
 			self.createexam_courseCombox.currentIndexChanged.connect(lambda:self.setGetClass(self.createexam_courseCombox,self.createexam_classCombox))
+			self.createexam_courseCombox.addItems(subjectlist)
 		else:
 			self.createexam_courseCombox.addItem(courseName)
 			self.createexam_classCombox.addItem(className)
@@ -544,7 +559,6 @@ class studentScoreManage(QMainWindow):
 			filenames=dig.selectedFiles()
 			lineEdit.setText(filenames[0])
 			#列表中的第一个元素即是文件路径，以只读的方式打开文件
-			
 
 	def loadStudent(self): #导入学生表，如果学生已经存在了，还要导入会造成数据重复，还没写这个逻辑
 		courseName = self.l_courseCombox.currentText()
@@ -635,7 +649,7 @@ class studentScoreManage(QMainWindow):
 		item.setText(0,self.class_name.text())
 		item.setCheckState(0, Qt.Unchecked)
 		QApplication.processEvents()
-
+		self.class_Tree.setExpanded(True)
 		select = QMessageBox.information(self,"新建成功","是否立即导入学生？",QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
 			parent.close()
@@ -680,7 +694,7 @@ class studentScoreManage(QMainWindow):
 		item.setText(0,self.courseName.text())
 		item.setCheckState(0, Qt.Unchecked)
 		QApplication.processEvents()
-
+		self.course_Tree.setExpanded(True)
 		select = QMessageBox.information(self,"新建成功","是否立即创建班级？",QMessageBox.Ok|QMessageBox.Cancel)
 		if select == QMessageBox.Ok:
 			parent.close()
@@ -709,27 +723,27 @@ class studentScoreManage(QMainWindow):
 						del_row.append(row)
 					else:
 						modify.append(row)
-			
-
-		print('modify:',modify)
-		print('add:',add)
-		print('del_row:',del_row)
 		
-		# 检查数据是否正确, 正确数据定义为，学号为整数，名字不为空， 成绩是合法的数字：+-1.0 +-1
+		# 检查数据是否正确, 正确数据定义为，学号为整数，名字不为空， 成绩是合法的数字：+-1.0 +-1 ,或者为空
 		# 根据self.TABLE_QUESTION_WEIGHT是否为None，可以判断此表是否是用于显示某一次成绩，如果是用于显示总成绩时不允许修改数据的。 
 		data_correct = True
 		for row in all_row:
 			if row in del_row:
 				continue
 			if not processData.isInteger(self.Table.item(row,0).text().strip()):
+				self.Table.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
 				data_correct = False
 				break
 			elif self.Table.item(row,1).text().strip() == '':
+				self.Table.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
 				data_correct = False
 				break
 			else:
 				for i in range(2, len(self.TABLE_HEADERS)-1):
+					if self.Table.item(row,i).text().strip() == '':
+						continue
 					if not processData.isNum(self.Table.item(row,i).text().strip()):
+						self.Table.item(row,i).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
 						data_correct = False
 						break
 				if not data_correct:
@@ -755,7 +769,6 @@ class studentScoreManage(QMainWindow):
 					repeat_rows = list(set([item.row() for item in items]))
 					for r in repeat_rows:
 						self.Table.item(r,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
-						self.Table.item(r,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
 					self.IS_USER_CHANGEITEM = True
 					QMessageBox.warning(self,'更改失败','学号不能重复')
 					return
@@ -765,7 +778,10 @@ class studentScoreManage(QMainWindow):
 				name = self.Table.item(row,1).text().strip()
 				score_json = {}
 				for i in range(2,len(self.TABLE_HEADERS)-1):
-					score_json[self.TABLE_HEADERS[i]] = self.Table.item(row, i).text().strip()
+					if self.Table.item(row, i).text().strip()!='':
+						score_json[self.TABLE_HEADERS[i]] = self.Table.item(row, i).text().strip()
+					else:
+						score_json[self.TABLE_HEADERS[i]] = None
 				self.database.student_table.insert(number, name ,self.CLASSID, self.COURSEID)
 				studentid = self.database.student_table.find(
 						number = number,
@@ -773,8 +789,8 @@ class studentScoreManage(QMainWindow):
 						classid = self.CLASSID,
 						course_id = self.COURSEID
 					)[0][0]
-
 				self.database.escore_table.insert(self.EXAMID, studentid, self.CLASSID, self.COURSEID, json.dumps(score_json))
+			
 			for row in del_row:
 				self.database.escore_table.delete(
 						examid = self.EXAMID,
@@ -782,6 +798,7 @@ class studentScoreManage(QMainWindow):
 						classid = self.CLASSID,
 						courseid = self.COURSEID
 					)
+			#修改成绩
 			for row in modify:
 				number = self.Table.item(row,0).text().strip()
 				name = self.Table.item(row,1).text().strip()
@@ -789,21 +806,29 @@ class studentScoreManage(QMainWindow):
 				self.database.student_table.update(id = studentid, number = number, name=name)
 				score_json = {}
 				for i in range(2,len(self.TABLE_HEADERS)-1):
-					score_json[self.TABLE_HEADERS[i]] = self.Table.item(row, i).text().strip()
-				escore_id = self.database.escore_table.find(
+					if self.Table.item(row, i).text().strip() != '':
+						score_json[self.TABLE_HEADERS[i]] = self.Table.item(row, i).text().strip()
+					else:
+						score_json[self.TABLE_HEADERS[i]] = None
+				escore = self.database.escore_table.find(
 						examid = self.EXAMID,
 						studentid = studentid,
 						classid = self.CLASSID,
 						courseid = self.COURSEID
-					)[0][0]
-				self.database.escore_table.update(id = escore_id, score_json = json.dumps(score_json))
+					)
+				if escore!=[]: #成绩记录存在则更新
+					self.database.escore_table.update(id = escore[0][0], score_json = json.dumps(score_json))
+				else:  #成绩记录不存在则添加
+					self.database.escore_table.insert(self.EXAMID,studentid, self.CLASSID,self.COURSEID,json.dumps(score_json))
+
 
 			headers,datas,weight_set,student_id = self.getScoreData(
 				examName = self.EXAMNAME,
 				classid = self.CLASSID,
 				courseid = self.COURSEID
 			)
-			self.showScoreTable(headers,datas,student_id,weight_set)
+			self.show_single_score(headers,datas,student_id,weight_set)
+			QMessageBox.information(self,'更改结果','更改成功')
 
 		self.IS_USER_CHANGEITEM = True		
 		return
@@ -905,15 +930,9 @@ class studentScoreManage(QMainWindow):
 		row = self.Table.currentRow()     # 获取当前单元格所在的行
 		col = self.Table.currentColumn()  # 获取当前单元格所在的列
 		currentItem = self.Table.item(row,col) # 获取当前单元格
-		print(row, col)
+		
 		if currentItem: #单元格对象QTableWidgetItem存在
-			
-			# 保存修改 -> 是否需要？
-			if row >= len(self.TABLE_DATA) : 
-				self.addRow[row-len(self.TABLE_DATA)][col] = currentItem.text()
-			else:
-				self.TABLE_DATA_COPY[row][col] = currentItem.text()
-
+			currentItem.setBackground(QBrush(QColor(self.setting['table']["cell_data_modify"])))
 			valid = False # 修改是否有效标记
 			isDel = False # 当此次修改是已存在的数据时，用于判断此次操作是否是删除某一行
 			
@@ -977,32 +996,19 @@ class studentScoreManage(QMainWindow):
 						currentItem.setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
 
 			else:# 处于修改成绩表格状态
-				print('modify score')
-				total = 0.0
-				total_is_valid = False
-				for col_ in range(0, len(self.TABLE_HEADERS)-1): #检查该行数据是否合法,并计算总成绩
-					if 2<= col_ <len(self.TABLE_HEADERS) and self.TABLE_QUESTION_WEIGHT!=None: #修改成绩
-						print('modify score')
-						if not processData.isNum(self.Table.item(row,col_).text()):# 数据如果不正确,将单元格填充为红色
-							self.Table.item(row,col_).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
+				print('modify score')				
+				if self.TABLE_QUESTION_WEIGHT!=None and col>=2:  # 修改成绩
+					total = 0.0
+					total_is_valid = False
+					for i in range(2,len(self.TABLE_HEADERS)-1): #计算总成绩
+						if self.Table.item(row,i).text().strip() == '':
+							continue
+						elif not processData.isNum(self.Table.item(row,i).text().strip()):# 数据如果不正确,将单元格填充为红色
+							self.Table.item(row,i).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
 						else:														# 数据正确，计算总成绩
 							total_is_valid = True
-							total = Decimal(str(total)) + Decimal(str(self.Table.item(row,col_).text()))*self.TABLE_QUESTION_WEIGHT[col_-2]/100
-							self.Table.item(row,col_).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
-					elif col_== 0:#修改学号
-						print('modify stunumbr')
-						if not (processData.isInteger(self.Table.item(row,0).text())):
-							self.Table.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
-						else:
-							self.Table.item(row,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
-					elif col_== 1:#修改姓名
-						print('modify name')
-						if self.Table.item(row,1).text() == '':
-							self.Table.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_error'])))
-						else:
-							self.Table.item(row,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_modify'])))
-			
-				self.Table.item(row,len(self.TABLE_HEADERS)-1).setText(str(total) if total_is_valid else '')
+							total = Decimal(str(total)) + Decimal(str(self.Table.item(row,i).text()))*self.TABLE_QUESTION_WEIGHT[i-2]/100
+					self.Table.item(row,len(self.TABLE_HEADERS)-1).setText(str(total) if total_is_valid else '')
 	
 		self.IS_USER_CHANGEITEM = True
 
@@ -1019,14 +1025,25 @@ class studentScoreManage(QMainWindow):
 		horizontalHeader.setSortIndicatorShown(True);
 		r = self.REVERSE
 		if self.modify_score_button.isVisible():
-			headers,datas,weight_set,student_id = self.getScoreData(
-				examName = self.EXAMNAME,
-				classid = self.CLASSID,
-				courseid = self.COURSEID,
-				sort_col = self.CURRENTCOL,
-				reverse = self.REVERSE
-			)
-			self.showScoreTable(headers,datas,student_id,weight_set)
+			if self.SHOW_SINGLE:
+				headers,datas,weight_set,student_id = self.getScoreData(
+					examName = self.EXAMNAME,
+					classid = self.CLASSID,
+					courseid = self.COURSEID,
+					sort_col = self.CURRENTCOL,
+					reverse = self.REVERSE
+				)
+				self.show_single_score(headers,datas,student_id,weight_set)
+			else:
+				headers, datas, all_exam_name, exam_weights = self.get_total_score(
+						self.COURSEID,
+						self.CLASSID,
+						self.CURRENTCOL,
+						self.REVERSE
+					)
+				self.show_single_score(headers,datas,None)
+				self.SHOW_SINGLE = False
+				self.setRightWindow(all_exam_name,exam_weights)
 		else:
 			headers, datas, student_id = self.getStudentData(
 				classid = self.CLASSID,
@@ -1043,7 +1060,7 @@ class studentScoreManage(QMainWindow):
 		checkScore_button = QPushButton("查看班级总成绩",self.midwidget)
 		checkScore_button.move(10,10)
 		checkScore_button.setStyleSheet('border-radius:6px;border:1px solid black;background:black;padding:6px;')
-		checkScore_button.clicked.connect(self.watch_total_score)
+		checkScore_button.clicked.connect(self.show_total_score)
 
 		self.modify_score_button = QPushButton("更改成绩",self.midwidget)
 		self.modify_score_button.move(190,10)
@@ -1056,6 +1073,7 @@ class studentScoreManage(QMainWindow):
 		self.modify_student_button.setVisible(False)
 
 		self.Table = QTableWidget(self.midwidget)
+
 		self.Table.horizontalHeader().sectionClicked.connect(self.clickTableHeader)
 		self.Table.itemChanged.connect(self.modifyTable)   # 处于显示成绩状态
 
@@ -1066,9 +1084,10 @@ class studentScoreManage(QMainWindow):
 		headers = ['ID','学号','姓名','班级ID','课程ID']
 		self.display_table(headers,self.database.student_table.find(),None)#可删除， 无用代码
 
-	def showScoreTable(self,headers:'表头数据 list', datas, student_id, weights=None):#显示成绩表
+	def show_single_score(self,headers:'表头数据 list', datas, student_id, weights=None):#显示成绩表
 		self.modify_score_button.setVisible(True)
 		self.modify_student_button.setVisible(False)
+		self.SHOW_SINGLE = True
 		headers.append('成绩')
 		self.TABLE_QUESTION_WEIGHT = None  #题型所占的权重
 		ItemIsEnabled = False
@@ -1160,26 +1179,24 @@ class studentScoreManage(QMainWindow):
 		else:
 			self.load_examid = examid
 		exam = self.database.exam_table.find(id=self.load_examid)[0]
-
 		self.question_name = exam[-2].split('<|>')
 		self.question_weight = list(map(int,exam[-1].split('-')))
-
 		for i, ql in enumerate(self.question_labels) :
 			self.question_labels[i].setVisible(False)  #稳定吗？
 			self.weights[i].setVisible(False)
 			self.question_vlayout.removeWidget(self.question_labels[i])
 			self.question_vlayout.removeWidget(self.weights[i])
-
 		self.question_labels = [QLabel("学号"),QLabel("姓名")]
 		self.question_labels.extend([QLabel(qname) for qname in self.question_name])
-
 		self.weights = []
 		for i in range(len(self.question_name)+2):
 			spinbox = QSpinBox()
-			spinbox.setRange(1,100)
+			if i<2:
+				spinbox.setRange(1,100)
+			else:
+				spinbox.setRange(0,100)
 			spinbox.setValue(i+1)
 			self.weights.append(spinbox)
-
 		vlayout = QVBoxLayout()
 		for item in zip(self.question_labels,self.weights):
 			h = QHBoxLayout()
@@ -1229,7 +1246,6 @@ class studentScoreManage(QMainWindow):
 		self.courseid = self.database.course_table.find(courseName = courseName)[0][0]
 		self.classid = self.database.class_table.find(className=className, course_id = self.courseid)[0][0]
 		self.load_examid = self.database.exam_table.find(examName = examName, courseid = self.courseid, classid = self.classid)[0][0]
-		# return
 		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
 
 		d_students = [(n[cols[0]-1],n[cols[1]-1]) for n in datas] #（学号， 姓名）
@@ -1238,42 +1254,41 @@ class studentScoreManage(QMainWindow):
 		#获取到excel表中的学生成绩记录和数据库中的学生成绩记录后检查，两者的学生人数是否一致，不一致的话，不在数据库中的学生需要添加到数据库，已经在数据库中的学生不在成绩表中需要将其成绩设置为0
 		d_sub_s = list(set(d_students) - set(s_students))
 		s_sub_d = list(set(s_students) - set(d_students))
-		for student in d_sub_s:
+		for student in d_sub_s: # 数据表减去学生表中剩下的学生即是没有被登记在学生表中的学生，需要添加到学生表中。
 			self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
-		for student in s_sub_d:
-			student = list(student)
-			student.extend(['0' for i in range(len(cols)-2)])
+		for student in s_sub_d: # 学生表减去成绩表中的学生剩下的即是没有考试成绩记录的学生，需要在末尾添加成绩。
+			student = list(student) #[学号， 姓名]
+			student.extend([None for i in range(len(cols)-2)]) # 各个成绩
 			datas.append(tuple(student))
 
-		#更新学生表以获得id
+		#更新学生id
 		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
-		student_dict = {}
+		
+		student_dict = {}  # 学号对应ID
 		for student in all_students:
 			student_dict[student[1]] = student[0]
-		scores = []
 
 		for s_score in datas:
+			if (s_score[0],s_score[1]) in s_sub_d: # 没有成绩记录的学生不存其成绩
+				break
 			score = {}
-			s = 0
 			for i, qname in enumerate(self.question_name):
 				score[qname] = s_score[i+2] 
-				s+=self.question_weight[i]*Decimal(str(s_score[i+2]))/100
-			scores.append(s)
 
 			#学生成绩如果已经存在的情况则变成修改
 			exam_score = self.database.escore_table.find(examid = self.load_examid,studentid = int(student_dict[s_score[0]]),classid= int(self.classid),courseid = int(self.courseid))
 			if exam_score!=[]:
 				self.database.escore_table.update(exam_score[0][0],score_json = json.dumps(score))
 			else:
-				self.database.escore_table.insert(int(self.load_examid),int(student_dict[s_score[0]]),int(self.classid),int(self.courseid),json.dumps(score))
-		
+				self.database.escore_table.insert(self.load_examid,student_dict[s_score[0]],self.classid,self.courseid,json.dumps(score))
+
 		#显示成绩
 		headers,s_datas,weight_set, student_id = self.getScoreData(
 					examName = examName,
 					classid = self.classid,
 					courseid = self.courseid,
 			)
-		self.showScoreTable(headers,s_datas,student_id,weight_set)
+		self.show_single_score(headers,s_datas,student_id,weight_set)
 		QMessageBox.information(self,'操作结果','导入成功',QMessageBox.Ok)
 
 
@@ -1289,7 +1304,7 @@ class studentScoreManage(QMainWindow):
 		self.loadscore_filepath = QLineEdit()
 		filepathbutton.clicked.connect(lambda:self.selectFile(widget,self.loadscore_filepath))
 
-		questiontype = QLabel('题型及导入表格中相应的列数：')
+		questiontype = QLabel('题型及导入表格中相应的列数(注意：0代表不导入该列成绩)：')
 
 		subjectlist,x = self.database.getCourseName()
 		question_list,x = self.database.getQuestionName()
@@ -1299,24 +1314,8 @@ class studentScoreManage(QMainWindow):
 		self.load_examName_combox = QComboBox()
 
 		self.question_labels = []
-		for question in question_list:
-			question_checkbox = QLabel(question)
-			self.question_labels.append(question_checkbox)
-
 		self.weights = [] #学生信息和成绩在成绩表中的列数
-		for i in range(len(question_list)):
-			spinbox = QSpinBox()
-			spinbox.setRange(0,100)
-			spinbox.setValue(100)
-			self.weights.append(spinbox)
-		
 		self.hlayouts = []
-
-		for item in zip(self.question_labels,self.weights):
-			h = QHBoxLayout()
-			h.addWidget(item[0])
-			h.addWidget(item[1])
-			self.hlayouts.append(h)
 
 		hlayout1 = QHBoxLayout()
 		hlayout1.addWidget(courselabel)
@@ -1341,10 +1340,7 @@ class studentScoreManage(QMainWindow):
 		self.question_vlayout.addLayout(hlayout3)
 		self.question_vlayout.addLayout(hlayout4)
 
-
 		self.question_vlayout.addWidget(questiontype)
-		for hlayout in self.hlayouts:
-			self.question_vlayout.addLayout(hlayout)
 
 		save_button = QPushButton('导入成绩')
 		save_button.clicked.connect(self.loadScore)
@@ -1367,22 +1363,10 @@ class studentScoreManage(QMainWindow):
 		widget.setLayout(self.question_vlayout)
 		widget.exec_()
 
-	# def showDumpData(self):  #选择需要导出的列数，暂时不需要，
-	# 	widget = QDialog(self)
-	# 	widget.setWindowTitle('导出成绩')
-	# 	QLabel('请输入导出目录：')
-	# 	self.dumpData_lineEdit = QLineEdit()
-	# 	selectButton = QPushButton('点击选择')
-
-	# 	QLabel('请选则需要导出的列数据：')
-
-	# 	print(self.TABLE_DATA, self.TABLE_HEADERS)
-
-	# 	widget.exec_()
 	def dumpData(self):
 		filepath, filetype = QFileDialog.getSaveFileName(self,
 			'请选择导出的目录',
-			"./dump",
+			".",
 			"""
 			Microsoft Excel 文件(*.xlsx);;
 			Microsoft Excel 97-2003 文件(*.xls)
@@ -1415,8 +1399,11 @@ class studentScoreManage(QMainWindow):
 		"""
 		currentItem = self.scoreTree.currentItem()
 		if funcType == 0: # 删除课程 或者 清空课程下的班级
-			print(self.COURSEID)
-			select = QMessageBox.critical(self,'删除','将清空该课程所有的班级和考试，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			select = QMessageBox.critical(self,
+				'删除' if isDel else '清空',
+				'将删除该课程所有的数据，确定继续？' if isDel else '将清空该课程下的所有班级数据，确定继续？',
+				QMessageBox.Ok|QMessageBox.Cancel
+			)
 			if select == QMessageBox.Cancel:
 				return
 
@@ -1439,12 +1426,14 @@ class studentScoreManage(QMainWindow):
 			if self.course_Tree.childCount() == 0:
 				self.course_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self, '操作结果','删除成功')
-
+			QMessageBox.information(self, '操作结果','{}成功'.format('删除' if isDel else '清空'))
 
 		elif funcType == 1: # 删除班级 或 清空班级考试
-			print(self.COURSEID, self.CLASSID)
-			select = QMessageBox.critical(self,'删除','将清空该班级所有的考试及学生，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			select = QMessageBox.critical(self,
+				'删除' if isDel else '清空',
+				'将删除该班级所有的数据，确定继续？' if isDel else '将清空该班级所有考试成绩，确定继续？',
+				QMessageBox.Ok|QMessageBox.Cancel
+				)
 			if select == QMessageBox.Cancel:
 				return
 			#isDel: true: 删除班级考试和学生，false:仅仅删除班级考试
@@ -1462,12 +1451,16 @@ class studentScoreManage(QMainWindow):
 			if self.class_Tree.childCount() == 0:
 				self.class_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self, '操作结果','成功删除')
+			QMessageBox.information(self, '操作结果','{}成功'.format('删除' if isDel else '清空'))
 				
 
 		elif funcType == 2:
 			print(self.COURSEID, self.CLASSID, self.EXAMID)
-			select = QMessageBox.critical(self,'删除','将清空该考试所有同学的成绩，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
+			select = QMessageBox.critical(self,
+				'删除' if isDel else '清空',
+				'将清空该场考试所有的成绩，确定继续？' if not isDel else '将删除该场考试所有的数据，确定继续？',
+				QMessageBox.Ok|QMessageBox.Cancel
+				)
 			if select == QMessageBox.Cancel:
 				return
 			#删除考试成绩
@@ -1479,7 +1472,7 @@ class studentScoreManage(QMainWindow):
 			if self.exam_Tree.childCount() == 0:
 				self.exam_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self,'操作结果','成功删除')
+			QMessageBox.information(self,'操作结果','{}成功'.format('删除' if isDel else '清空'))
 
 		elif funcType == 3:
 			select = QMessageBox.critical(self,'清空','将清空所有课程，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
@@ -1548,10 +1541,10 @@ class studentScoreManage(QMainWindow):
 	def createRightMenu_for_table(self):
 		print("hello")
 		menu = QMenu(self.Table)
-		menu.exec_(QCursor.pos())
 		del_action = QAction('删除',self.Table)
 		menu.addAction(del_action)
-		menu.show()
+		menu.exec_(QCursor.pos())
+
 	def createRightMenu_for_tree(self):
 		# 考试节点----导入成绩
 		currentItem = self.scoreTree.currentItem()
@@ -1580,8 +1573,6 @@ class studentScoreManage(QMainWindow):
 			return
 
 		menu = QMenu(self.scoreTree)
-		menu.exec_(QCursor.pos())
-
 		new_action = QAction('新建{}'.format(new_tip),self.scoreTree)
 		load_action = QAction('导入{}'.format(load_tip),self.scoreTree)
 		clear_action = QAction('清空{}'.format(clear_tip),self.scoreTree)
@@ -1604,8 +1595,7 @@ class studentScoreManage(QMainWindow):
 		clear_action.setIcon(QIcon('./images/clear.ico'))
 		delete_action.setIcon(QIcon('./images/del3.ico'))
 		load_action.setIcon(QIcon('./images/{}.ico'.format('loadScore2' if load_tip=='成绩' else 's')))
-
-		menu.show()
+		menu.exec_(QCursor.pos())
 
 	def Check(self):#设置左边查看成绩单的参数，成绩查询接口函数
 		currentItem = self.scoreTree.currentItem()
@@ -1674,7 +1664,7 @@ class studentScoreManage(QMainWindow):
 					)
 				self.QUESTION_TYPE = headers[2:]
 				self.QUESTION_WEIGHT = weight_set
-				self.showScoreTable(headers,datas,student_id,weight_set)
+				self.show_single_score(headers,datas,student_id,weight_set)
 				self.setRightWidget()
 
 	def changeweight(self,parent): #更改权重
@@ -1692,7 +1682,7 @@ class studentScoreManage(QMainWindow):
 		classid = self.CLASSID,
 		courseid = self.COURSEID,
 		)
-		self.showScoreTable(headers,datas,student_id,weight_set)
+		self.show_single_score(headers,datas,student_id,weight_set)
 
 	def setRightWidget(self):
 		if self.r_widget != None:
@@ -1812,64 +1802,78 @@ class studentScoreManage(QMainWindow):
 			self.course_Tree.setExpanded(False)
 
 
-
-	def watch_total_score(self):#查看所有成绩，禁止修改表格，可以修改考试所占比重
+	def show_total_score(self):
 		if self.COURSEID == None or self.CLASSID == None:
-			QMessageBox.warning(self,'错误操作','请先选择课程、班级',QMessageBox.Ok)
+			QMessageBox.warning(self,'查看失败','请选择课程、班级')
 			return
-		all_exam_name, examName_to_id = self.database.getExamName(courseid = self.COURSEID,classid = self.CLASSID)
-		all_students = self.database.student_table.find(classid = self.CLASSID, course_id = self.COURSEID)
+		headers, datas, all_exam_name,exam_weights = self.get_total_score(self.COURSEID, self.CLASSID)
+		self.show_single_score(headers,datas,None)
+		self.SHOW_SINGLE = False
+		self.setRightWindow(all_exam_name,exam_weights)
+	
+	def get_total_score(self, courseid, classid ,sort_col= 0, reverse = False):#查看所有成绩，禁止修改表格，可以修改考试所占比重
+		all_exam_name, examName_to_id = self.database.getExamName(courseid = courseid, classid = classid)
+		all_students = self.database.student_table.find(classid = classid, course_id = courseid)
 		all_exam_score = {}
 		exam_weights = {}
-		for student in all_students:
-			all_score = []
+		if all_students == []: # 学生为空也要初始化考试信息
 			for exam in all_exam_name:
-				result = {}
-				exam_detail = self.database.exam_table.find(id=examName_to_id[exam])
-				result['question_weights'] = exam_detail[0][-1]
-				result['question_type'] = exam_detail[0][-2]
-				exam_weights[exam] = exam_detail[0][-3]
-				result['exam_weight'] = exam_detail[0][-3]
-				score = self.database.escore_table.find(
-					examid = examName_to_id[exam], 
-					studentid = student[0],
-					classid = self.CLASSID,
-					courseid = self.COURSEID
-					)
-				if score != []:
-					result['score_json'] = score[0][-1]
-				else:
-					result['score_json'] = ''
-				all_score.append(result)
+				exam_detail = self.database.exam_table.find(id=examName_to_id[exam]) # 获取该场考试详情
+				exam_weights[exam] = exam_detail[0][-3]   			# 考试比重 用于显示成绩信息
+		else:
+			for student in all_students: #对于该班级所有的学生
+				all_score = []
+				for exam in all_exam_name: # 每个学生的每场考试成绩
+					result = {}
+					exam_detail = self.database.exam_table.find(id=examName_to_id[exam]) # 获取该场考试详情
+					result['question_weights'] = exam_detail[0][-1]		# 考试题型比重
+					result['question_type'] = exam_detail[0][-2]		# 考试题型名称
+					result['exam_weight'] = exam_detail[0][-3]          # 考试比重 用于计算成绩
+					exam_weights[exam] = exam_detail[0][-3]   			# 考试比重 用于显示成绩信息
+					score = self.database.escore_table.find(
+						examid = examName_to_id[exam], 
+						studentid = student[0],
+						classid = classid,
+						courseid = courseid
+						)
+					if score != []: # 学生成绩存在
+						result['score_json'] = score[0][-1]
+					else:			# 学生成绩不存在
+						result['score_json'] = None
+					all_score.append(result)
 
-			all_exam_score[student] = all_score
-
+				all_exam_score[student] = all_score
 		headers = ['学号','姓名']
 		headers.extend(all_exam_name)
 		datas = []
-		print(all_exam_score)
+		# 计算学生考试总成绩
 		for student,exam_list in all_exam_score.items():
 			scores = []
 			total = 0
-			for score in exam_list:
+			for score in exam_list: #计算一场考试的成绩
 				question_weights = list(map(int, score['question_weights'].split('-')))
 				question_name = score['question_type'].split('<|>')
-				if score['score_json']!='':
+				if score['score_json'] != None:
 					score_json = json.loads(score['score_json']) # 考试成绩存在的情况
-				else:
-					score_json = {qname:0 for qname in question_name}  # 成绩不存在的情况
-				sum = 0
-				for i,qname in enumerate(question_name):
-					sum += Decimal(str(score_json[qname]))*question_weights[i]/100
+					sum = 0.0
+					for i,qname in enumerate(question_name):
+						if score_json[qname]!=None:
+							sum = Decimal(str(sum)) + Decimal(str(score_json[qname]))*question_weights[i]/100
+				else: #学生成绩不存在
+					sum = 0.0
 				scores.append(sum)
-				total+= sum*score['exam_weight']/100
+				total = Decimal(str(total)) +  Decimal(str(sum*score['exam_weight']/100))
 			s_m = [student[1],student[2]]
 			s_m.extend(scores)
 			s_m.append(total)
 			datas.append(s_m)
-
-		self.showScoreTable(headers,datas,None)
-		self.setRightWindow(all_exam_name,exam_weights)
+		if sort_col == 0:
+			datas = sorted(datas,key = lambda record:int(record[0]), reverse= reverse)
+		elif sort_col == 1:
+			datas = sorted(datas, key = lambda record:record[1], reverse = reverse)
+		else:
+			datas = sorted(datas, key = lambda record:float(record[sort_col]),reverse = reverse)
+		return headers, datas, all_exam_name,exam_weights
 
 	def setRightWindow(self,all_exam_name, exam_weights):
 		print(all_exam_name,exam_weights)
@@ -1923,7 +1927,7 @@ class studentScoreManage(QMainWindow):
 		x, examName_to_id = self.database.getExamName(self.COURSEID, self.CLASSID)
 		for i,examName in enumerate(all_exam_name):
 			self.database.exam_table.update(id = examName_to_id[examName], exam_weight=weights[i])
-		self.watch_total_score()
+		self.show_total_score()
 
 	def searchPre(self):
 		if self.showAll == True:

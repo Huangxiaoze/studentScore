@@ -1,45 +1,30 @@
-from PyQt5.QtCore import QObject , pyqtSignal
-
-class SignalClass(QObject):
-
-     # 声明无参数的信号
-    signal1 = pyqtSignal()
-
-    # 声明带一个int类型参数的信号
-    signal2 = pyqtSignal(int)
-
-    def __init__(self,parent=None):
-        super(SignalClass,self).__init__(parent)
-
-        # 将信号signal1连接到sin1Call和sin2Call这两个槽函数
-        self.signal1.connect(self.sin1Call)
-        self.signal1.connect(self.sin2Call)
-
-        # 将信号signal2连接到信号signal1
-        self.signal2.connect(self.signal1)
-
-        # 发射信号
-        self.signal1.emit()
-        self.signal2.emit(1)
-
-        # 断开signal1、signal2信号与各槽函数的连接
-        self.signal1.disconnect(self.sin1Call)
-        self.signal1.disconnect(self.sin2Call)
-        self.signal2.disconnect(self.signal1)
-
-        # 将信号signal1和signal2连接到同一个槽函数sin1Call
-        self.signal1.connect(self.sin1Call)
-        self.signal2.connect(self.sin1Call)
-
-        # 再次发射信号
-        self.signal1.emit()
-        self.signal2.emit(1)
-
-    def sin1Call(self):
-        print("signal-1 emit")
-
-    def sin2Call(self):
-        print("signal-2 emit")
-
-if __name__ == '__main__':  
-    signal = SignalClass()
+import sys
+from PyQt5.QtWidgets import QApplication, QWidget 
+class Example(QWidget):
+ 
+  def __init__(self):
+        super().__init__()
+ 
+        self.initUI()  # 界面绘制交给InitUi方法
+ 
+    def initUI(self):
+ 
+        self.desktop = QApplication.desktop()
+ 
+        #获取显示器分辨率大小
+        self.screenRect = self.desktop.screenGeometry()
+        self.height = self.screenRect.height()
+        self.width = self.screenRect.width()
+ 
+        print(self.height)
+        print(self.width)
+ 
+        # 显示窗口
+        self.show()
+ 
+ 
+if __name__ == '__main__':
+    # 创建应用程序和对象
+    app = QApplication(sys.argv)
+    ex = Example()
+    sys.exit(app.exec_())

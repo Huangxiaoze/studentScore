@@ -36,8 +36,10 @@ def loadScore(filepath,args:list):
 		row = worksheet.row(x)
 		data = []
 		for i in args:
-			if i==args[0]:
+			if i==args[0]: #学号确保为整数
 				data.append(str(row[int(i)-1].value).replace('.',''))
+			elif i==0:
+				data.append(None)
 			else:
 				data.append(str(row[int(i)-1].value))
 		datas.append(tuple(data))
