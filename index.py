@@ -12,6 +12,7 @@ import time
 from collections import defaultdict
 from decimal import Decimal
 import os
+import images
 #仅仅windows支持
 import ctypes
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('myappid')
@@ -25,7 +26,7 @@ class loadQSS:
 
 class studentScoreManage(QMainWindow):
 	def __init__(self):
-		splash = QSplashScreen(QPixmap("windowIcon.png"))
+		splash = QSplashScreen(QPixmap(":./images/wico.ico"))
 		splash.showMessage("加载中... ", Qt.AlignHCenter | Qt.AlignBottom, Qt.black)
 		splash.show()  
 		super().__init__()
@@ -45,46 +46,62 @@ class studentScoreManage(QMainWindow):
 		初始化窗口
 		"""
 		window_pale = QPalette() 
-		window_pale.setBrush(self.backgroundRole(),QBrush(QPixmap("./2.jpg"))) 
-		desktop = QApplication.desktop()
-		screenRect = desktop.screenGeometry()
-		height = screenRect.height()
-		width = screenRect.width()
-		print(height, width)
-		
+		window_pale.setBrush(self.backgroundRole(),QBrush(QPixmap(":./images/2.jpg"))) 
+		# desktop = QApplication.desktop()
+		# screenRect = desktop.screenGeometry()
+		# height = screenRect.height()
+		# width = screenRect.width()
+		# print(height, width)
+
 		self.setPalette(window_pale)
 		self.resize(1620,650)
-		self.setWindowIcon(QIcon('./windowIcon.png'))
+		self.setWindowIcon(QIcon(':./images/wico.ico'))
 		self.setWindowTitle('成绩管理')
+
+		self.splitter = QSplitter() #视图布局
+		self.scoreTree = QTreeWidget() # 成绩查看
+		self.Table = QTableWidget()    # 成绩表
+		self.rightwidget = QWidget() #右视图
+
+		self.splitter.addWidget(self.scoreTree)
+		self.splitter.addWidget(self.Table)
+		self.splitter.addWidget(self.rightwidget)
+		self.splitter.setSizes([200,940,400])
+
+		self.setCentralWidget(self.splitter)
+		self.initSetting()
+		self.initScoreTree()
+		self.initScoreTable()
+		self.initExamMessage()
+		self.initMenu()
+		self.initSearchWindow()
+
+	def initSetting(self):
 		with open('./setting.json','r') as f:
 			content = f.read()
 		self.setting = json.loads(content)#设置
 
-		self.splitter = QSplitter(self) #视图布局
-		self.leftwidget = QWidget() #左视图
-		self.midwidget = QWidget()  #中视图
-		self.rightwidget = QWidget() #右视图
-
-		self.splitter.resize(self.width(),self.height()-self.setting['splitter']['splitter_y'])
-		self.splitter.move(0,self.setting['splitter']['splitter_y'])
-		self.splitter.addWidget(self.leftwidget)
-		self.splitter.addWidget(self.midwidget)
-		self.splitter.addWidget(self.rightwidget)
-		self.splitter.setSizes([200,940,400])
-
-		self.initleftwidget()
-		self.initmidwidget()
-		self.initrightwidget()
-		self.initMenu()
-		self.initSearchWindow()
-
-		
-	def initrightwidget(self):
+	def initExamMessage(self):
 		"""
 		初始化右侧考试信息窗口
 		"""
-		message = QLabel('考试信息',self.rightwidget)
-		message.move(100,20)
+		checkScore_button = QPushButton("查看班级总成绩",self.rightwidget)
+		checkScore_button.move(10,10)
+		checkScore_button.setStyleSheet('border-radius:6px;border:1px solid black;background:black;padding:6px;')
+		checkScore_button.clicked.connect(self.show_total_score)
+
+		self.modify_score_button = QPushButton("更改成绩",self.rightwidget)
+		self.modify_score_button.move(190,10)
+		self.modify_score_button.clicked.connect(self.modifyScore) # 
+		self.modify_score_button.setVisible(False)
+
+		self.modify_student_button = QPushButton('更改学生',self.rightwidget)
+		self.modify_student_button.move(190, 10)
+		self.modify_student_button.clicked.connect(self.modifyStudent)
+		self.modify_student_button.setVisible(False)
+
+		# message = QLabel('考试信息',self.rightwidget)
+		# message.move(100,40)
 		self.r_widget = None
 
 	def initMenu(self):
@@ -100,7 +117,7 @@ class studentScoreManage(QMainWindow):
 		self.func_toolbar = self.addToolBar('Edit')
 
 		self.status_bar = self.statusBar() # 状态显示
-		self.status_bar.showMessage("hello word")
+		#self.status_bar.showMessage("hello word")
 		self.load_action = QAction('导入成绩', self)				# 动作
 		self.dump_action = QAction('导出成绩', self)				#
 		self.save_action = QAction('保存修改', self)				#
@@ -112,15 +129,15 @@ class studentScoreManage(QMainWindow):
 		self.print_action = QAction('打印',self)
 		self.find_action = QAction('查找',self)
 
-		self.newExam_action.setIcon(QIcon(r'./images/exam1.ico')) #设置图标
-		self.load_studentData_action.setIcon(QIcon(r'./images/s.ico'))
-		self.load_action.setIcon(QIcon(r'./images/loadScore2.ico'))
-		self.newcourse_action.setIcon(QIcon(r'./images/blackboard.ico'))
-		self.newclass_action.setIcon(QIcon(r'./images/class2.ico'))
-		self.newQuestion_action.setIcon(QIcon(r'./images/question.ico'))
-		self.dump_action.setIcon(QIcon(r'./images/dump.ico'))
-		self.find_action.setIcon(QIcon(r'./images/search96px.ico'))
-		self.print_action.setIcon(QIcon(r'./images/printer.ico'))
+		self.newExam_action.setIcon(QIcon(r':./images/exam1.ico')) #设置图标
+		self.load_studentData_action.setIcon(QIcon(r':./images/s.ico'))
+		self.load_action.setIcon(QIcon(r':./images/loadScore2.ico'))
+		self.newcourse_action.setIcon(QIcon(r':./images/blackboard.ico'))
+		self.newclass_action.setIcon(QIcon(r':./images/class2.ico'))
+		self.newQuestion_action.setIcon(QIcon(r':./images/question.ico'))
+		self.dump_action.setIcon(QIcon(r':./images/dump.ico'))
+		self.find_action.setIcon(QIcon(r':./images/search96px.ico'))
+		self.print_action.setIcon(QIcon(r':./images/printer.ico'))
 
 		self.load_action.triggered.connect(lambda:self.loadData())		# 动作事件响应
 		self.dump_action.triggered.connect(self.dumpData)		#
@@ -701,6 +718,9 @@ class studentScoreManage(QMainWindow):
 			self.createClass(courseName)
 
 	def modifyScore(self): #修改成绩 可以知道，在changeRow中记录为True的行必定发生了改变
+		if not self.SHOW_SINGLE:
+			QMessageBox.warning(self,'更改失败','不允许修改总成绩')
+			return
 		self.IS_USER_CHANGEITEM = False
 		modify = []
 		add = []
@@ -1055,32 +1075,19 @@ class studentScoreManage(QMainWindow):
 		self.CURRENTCOL = currentColumn
 		self.REVERSE = r
 
-	def initmidwidget(self):
+	def initScoreTable(self):
 
-		checkScore_button = QPushButton("查看班级总成绩",self.midwidget)
-		checkScore_button.move(10,10)
-		checkScore_button.setStyleSheet('border-radius:6px;border:1px solid black;background:black;padding:6px;')
-		checkScore_button.clicked.connect(self.show_total_score)
-
-		self.modify_score_button = QPushButton("更改成绩",self.midwidget)
-		self.modify_score_button.move(190,10)
-		self.modify_score_button.clicked.connect(self.modifyScore) # 
-		self.modify_score_button.setVisible(False)
-
-		self.modify_student_button = QPushButton('更改学生',self.midwidget)
-		self.modify_student_button.move(190, 10)
-		self.modify_student_button.clicked.connect(self.modifyStudent)
-		self.modify_student_button.setVisible(False)
-
-		self.Table = QTableWidget(self.midwidget)
-
+		horizontalHeader = self.Table.horizontalHeader()
+		verticalHeader = self.Table.verticalHeader()
+		verticalHeader.setDefaultSectionSize(24)
+		#self.Table.setFocusPolicy(Qt.NoFocus)
 		self.Table.horizontalHeader().sectionClicked.connect(self.clickTableHeader)
 		self.Table.itemChanged.connect(self.modifyTable)   # 处于显示成绩状态
 
 		self.Table.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.Table.customContextMenuRequested.connect(self.createRightMenu_for_table)
 
-		self.Table.move(0,50)
+		self.Table.move(0,0)
 		headers = ['ID','学号','姓名','班级ID','课程ID']
 		self.display_table(headers,self.database.student_table.find(),None)#可删除， 无用代码
 
@@ -1591,10 +1598,10 @@ class studentScoreManage(QMainWindow):
 		if clear_tip != '':
 			menu.addAction(delete_action)
 
-		new_action.setIcon(QIcon('./images/add1.ico'))  # 为动作添加图标
-		clear_action.setIcon(QIcon('./images/clear.ico'))
-		delete_action.setIcon(QIcon('./images/del3.ico'))
-		load_action.setIcon(QIcon('./images/{}.ico'.format('loadScore2' if load_tip=='成绩' else 's')))
+		new_action.setIcon(QIcon(':./images/add1.ico'))  # 为动作添加图标
+		clear_action.setIcon(QIcon(':./images/clear.ico'))
+		delete_action.setIcon(QIcon(':./images/del3.ico'))
+		load_action.setIcon(QIcon(':./images/{}.ico'.format('loadScore2' if load_tip=='成绩' else 's')))
 		menu.exec_(QCursor.pos())
 
 	def Check(self):#设置左边查看成绩单的参数，成绩查询接口函数
@@ -1763,8 +1770,7 @@ class studentScoreManage(QMainWindow):
 		self.r_widget.move(0,40)
 		self.r_widget.show()
 
-	def initleftwidget(self):                    
-		self.scoreTree = QTreeWidget(self.leftwidget) 
+	def initScoreTree(self):                    
 		self.scoreTree.move(0,0) 
 		self.scoreTree.resize(200,self.height())                      
 		self.scoreTree.setColumnCount(1)
@@ -2050,8 +2056,6 @@ class studentScoreManage(QMainWindow):
 
 	def resizeEvent(self,event):
 		self.scoreTree.resize(200,self.height())
-		self.splitter.resize(self.width(),self.height()-self.setting['splitter']['splitter_y'])
-		self.Table.resize(900,self.height()-200)
 		self.searchFrame.resize(self.width(), self.setting['search']["height"])
 		self.searchFrame.move(0, self.height()-self.setting["search"]["height"])
 
@@ -2073,6 +2077,6 @@ class studentScoreManage(QMainWindow):
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
 	window = studentScoreManage()
-	qss = loadQSS.getStyleSheet('./style.qss')
+	qss = loadQSS.getStyleSheet('./qss/style.qss')
 	window.setStyleSheet(qss)
 	sys.exit(app.exec())

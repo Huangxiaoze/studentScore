@@ -4,6 +4,7 @@
 <file alias="images/2.jpg">images/2.jpg</file>
 <file alias="images/add1.ico">images/add1.ico</file>
 <file alias="images/add2.ico">images/add2.ico</file>
+<file alias="images/b2.jpg">images/b2.jpg</file>
 <file alias="images/blackboard.ico">images/blackboard.ico</file>
 <file alias="images/class.ico">images/class.ico</file>
 <file alias="images/class1.ico">images/class1.ico</file>
@@ -29,7 +30,10 @@
 <file alias="images/search48px.ico">images/search48px.ico</file>
 <file alias="images/search96px.ico">images/search96px.ico</file>
 <file alias="images/student.ico">images/student.ico</file>
+<file alias="images/th.jpg">images/th.jpg</file>
+<file alias="images/wico.ico">images/wico.ico</file>
 <file alias="images/windowIcon.ico">images/windowIcon.ico</file>
+<file alias="images/windowIcon.png">images/windowIcon.png</file>
 <file alias="qss/style.qss">qss/style.qss</file>
 </qresource>
 </RCC>

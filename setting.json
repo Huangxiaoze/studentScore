@@ -10,7 +10,7 @@
 		"cell_data_repeat":"#B3F781",
 		"search_select_color":"#89CBCA",
 		"table_delRow":"#FF0101",
-		"table_addRow":20
+		"table_addRow":40
 	},
 	"splitter":{
 		"splitter_y":65
@@ -20,7 +20,7 @@
 	},
 	"tree":{
 		"selected_color":"#AAF697",
-		"background":"#E8ECAE"
+		"background":"#e6d4ae"
 	}
 	
 }
