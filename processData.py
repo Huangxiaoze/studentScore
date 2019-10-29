@@ -69,7 +69,7 @@ def get_wordSize(word): #获取单词大小
 			size+=1
 	return size
 
-def dumpData(filePath, headers, datas,sheet_name="sheet1"):
+def dumpData(filePath, headers, datas, weights=None, sheet_name="sheet1"):
 	# 创建一个workbook 设置编码
 	space = 2
 	size = [get_wordSize(h)+space for h in headers]
@@ -78,17 +78,37 @@ def dumpData(filePath, headers, datas,sheet_name="sheet1"):
 
 	# 保存表头
 	for i,header in enumerate(headers):
+		# 此处需要修改，将weights类型统一
+		if weights!=None and 2<=i<len(headers)-1:
+			header += '({}%)'.format(weights[header])
 		worksheet.write(0,i, header ,set_style('宋体',22,True))
-		worksheet.col(i).width = size[i]*256
+		size[i] = get_wordSize(header)+space*2
 
 	#保存数据
+	alph = [
+		'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+		'AA','AB','AC','AD','AE','AF','AG','AH','AI','AJ','AK','AL','AM','AN','AO','AP','AQ','AR','AS','AT','AU','AV','AW','AX','AY','AZ'
+	]
+	
 	for i,data in enumerate(datas):
+		SUM = []
 		for j,cell_data in enumerate(data):
 			cell_data = str(cell_data)
-			if isNum(cell_data):
-				worksheet.write(i+1,j, float(cell_data), set_style('宋体',18))
-			else:
-				worksheet.write(i+1,j, cell_data, set_style('宋体',18))
+			if weights!=None: # 导出成绩
+				if 2<=j<len(headers)-1:
+					SUM.append(alph[j]+str(i+2)+"*"+str(weights[headers[j]]/100))
+				if j!=len(data)-1: # 非总成绩一列
+					if isNum(cell_data): # 单元格是题型的成绩数据 或者 学号
+						worksheet.write(i+1,j, float(cell_data), set_style('宋体',18))
+					else:
+						worksheet.write(i+1,j, cell_data, set_style('宋体',18))
+				else:
+					worksheet.write(i+1,j, xlwt.Formula('SUM({})'.format(','.join(SUM))), set_style('宋体',18))
+			else:  #单纯导出表格
+				if isNum(cell_data):
+					worksheet.write(i+1,j, float(cell_data), set_style('宋体',18))
+				else:
+					worksheet.write(i+1,j, cell_data, set_style('宋体',18))
 			if get_wordSize(cell_data)+space > size[j]:
 				size[j] = get_wordSize(cell_data)+space
 

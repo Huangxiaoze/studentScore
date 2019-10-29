@@ -15,6 +15,7 @@
 <file alias="images/del1.ico">images/del1.ico</file>
 <file alias="images/del2.ico">images/del2.ico</file>
 <file alias="images/del3.ico">images/del3.ico</file>
+<file alias="images/del_q.ico">images/del_q.ico</file>
 <file alias="images/dump.ico">images/dump.ico</file>
 <file alias="images/exam1.ico">images/exam1.ico</file>
 <file alias="images/exam2.ico">images/exam2.ico</file>
@@ -31,6 +32,7 @@
 <file alias="images/search96px.ico">images/search96px.ico</file>
 <file alias="images/student.ico">images/student.ico</file>
 <file alias="images/th.jpg">images/th.jpg</file>
+<file alias="images/totalScore.ico">images/totalScore.ico</file>
 <file alias="images/wico.ico">images/wico.ico</file>
 <file alias="images/windowIcon.ico">images/windowIcon.ico</file>
 <file alias="images/windowIcon.png">images/windowIcon.png</file>
