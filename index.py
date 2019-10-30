@@ -78,7 +78,7 @@ class studentScoreManage(QMainWindow):
 		self.h_splitter.addWidget(self.rightwidget)
 		self.h_splitter.setSizes([200,940,400])
 
-		
+		self.setCentralWidget(self.h_splitter) # 先添加到QMainWindow, 再初始化，不然h_splitter会覆盖掉搜索界面
 		self.initSetting()
 		self.initFuncButton()
 		self.initScoreTree()
@@ -87,7 +87,7 @@ class studentScoreManage(QMainWindow):
 		self.initMenu()
 		self.initSearchWindow()
 
-		self.setCentralWidget(self.h_splitter)
+		
 		self.setStyleSheet(loadQSS.getStyleSheet('./qss/style.qss'))
 
 	def initSetting(self):
@@ -330,13 +330,6 @@ class studentScoreManage(QMainWindow):
 			)
 		
 		
-		# headers,datas,weight_set = self.getScoreData(
-		# 	examName = examName,
-		# 	examDate = examDate,
-		# 	classid = classid,
-		# 	courseid = courseid,
-		# 	)
-		# self.show_single_score(headers,datas)
 		item = QTreeWidgetItem(self.exam_Tree)
 		item.setText(0,examName)
 		item.setCheckState(0, Qt.Unchecked)
@@ -475,7 +468,7 @@ class studentScoreManage(QMainWindow):
 
 		self.createexam_courseCombox = QComboBox()
 		self.createexam_classCombox = QComboBox()
-		self.checkboxs = [ ]
+		self.checkboxs = []
 		for question in question_list:
 			question_checkbox = QCheckBox(question)
 			self.checkboxs.append(question_checkbox)
@@ -763,7 +756,7 @@ class studentScoreManage(QMainWindow):
 			self.createClass(courseName)
 
 	def modifyScore(self): #修改成绩 可以知道，在changeRow中记录为True的行必定发生了改变
-		if not self.SHOW_SINGLE:
+		if self.TABLE_CONTENT == 2:
 			QMessageBox.warning(self,'更改失败','不允许修改总成绩')
 			return
 		self.IS_USER_CHANGEITEM = False
@@ -899,6 +892,9 @@ class studentScoreManage(QMainWindow):
 		return
 
 	def modifyStudent(self):
+		if self.TABLE_CONTENT == 2:
+			QMessageBox.information(self,'更改失败','不允许修改总成绩')
+			return
 		modify = []
 		add = []
 		del_row = []
@@ -984,11 +980,11 @@ class studentScoreManage(QMainWindow):
 		"""
 		三种操作 增加、删除、修改
 		"""
-		if self.IS_USER_CHANGEITEM:
-			print('user modify')
+		if self.CLASSID == None:
+			return
 		if not self.IS_USER_CHANGEITEM:
 			return
-
+		self.TABLE_CHANGE = True
 		self.IS_USER_CHANGEITEM = False
 
 		#需要考虑 此处会再次引发itemChanged事件, 目前解决方案，使用 IS_USER_CHANGEITEM标记是否是用户改变表格
@@ -1034,7 +1030,7 @@ class studentScoreManage(QMainWindow):
 			if not valid: 
 				for i in range(len(self.TABLE_HEADERS)): 
 					self.Table.item(row,i).setText('')
-					self.Table.item(row,i).setBackground(QBrush(QColor('#BFB8B8')))
+					self.Table.item(row,i).setBackground(QBrush(QColor(self.setting['table']["cell_backgroundcolor"])))
 				self.IS_USER_CHANGEITEM = True
 				return
 
@@ -1062,7 +1058,7 @@ class studentScoreManage(QMainWindow):
 
 			else:# 处于修改成绩表格状态
 				print('modify score')				
-				if self.SHOW_SINGLE and col>=2:  # 修改成绩
+				if self.TABLE_CONTENT==1 and col>=2:  # 修改成绩
 					total = 0.0
 					total_is_valid = False
 					for i in range(2,len(self.TABLE_HEADERS)-1): #计算总成绩
@@ -1090,27 +1086,7 @@ class studentScoreManage(QMainWindow):
 		horizontalHeader.setSortIndicator(self.CURRENTCOL,Qt.DescendingOrder if self.REVERSE else Qt.AscendingOrder)
 		horizontalHeader.setSortIndicatorShown(True);
 		r = self.REVERSE
-		if self.modify_score_button.isVisible():
-			if self.SHOW_SINGLE:
-				headers,datas,weight_set,student_id = self.getScoreData(
-					examName = self.EXAMNAME,
-					classid = self.CLASSID,
-					courseid = self.COURSEID,
-					sort_col = self.CURRENTCOL,
-					reverse = self.REVERSE
-				)
-				self.show_single_score(headers,datas,student_id,weight_set)
-			else:
-				headers, datas, all_exam_name, exam_weights = self.get_total_score(
-						self.COURSEID,
-						self.CLASSID,
-						self.CURRENTCOL,
-						self.REVERSE
-					)
-				self.show_single_score(headers,datas,None)
-				self.SHOW_SINGLE = False
-				self.setRightWindow(all_exam_name,exam_weights)
-		else:
+		if self.TABLE_CONTENT == 0: # 此时表格显示的是学生信息
 			headers, datas, student_id = self.getStudentData(
 				classid = self.CLASSID,
 				courseid = self.COURSEID,
@@ -1118,6 +1094,18 @@ class studentScoreManage(QMainWindow):
 				reverse = self.REVERSE
 				)
 			self.showStudentTable(headers, datas, student_id)
+		elif self.TABLE_CONTENT == 1:# 此时表格显示的是成绩信息
+			headers,datas,weight_set,student_id = self.getScoreData(
+				examName = self.EXAMNAME,
+				classid = self.CLASSID,
+				courseid = self.COURSEID,
+				sort_col = self.CURRENTCOL,
+				reverse = self.REVERSE
+			)
+			self.show_single_score(headers,datas,student_id,weight_set)
+		elif self.TABLE_CONTENT == 2: # 此时表格显示的是总成绩
+			self.show_total_score()
+
 		self.CURRENTCOL = currentColumn
 		self.REVERSE = r
 
@@ -1132,20 +1120,25 @@ class studentScoreManage(QMainWindow):
 
 		self.Table.setContextMenuPolicy(Qt.CustomContextMenu)
 		self.Table.customContextMenuRequested.connect(self.createRightMenu_for_table)
-
-		self.Table.move(0,0)
-		headers = ['ID','学号','姓名','班级ID','课程ID']
-		self.display_table(headers,self.database.student_table.find(),None)#可删除， 无用代码
+		self.Table.setColumnCount(20)
+		self.Table.setRowCount(40)
+		self.TABLE_HEADERS=[]
+		self.TABLE_DATA = []
+		self.TABLE_QUESTION_WEIGHT =None
+		self.TABLE_CHANGE = False
 
 	def show_single_score(self,headers:'表头数据 list', datas, student_id, weights=None):#显示成绩表
 		self.modify_score_button.setVisible(True)
 		self.modify_student_button.setVisible(False)
-		self.SHOW_SINGLE = True
+		self.TABLE_CONTENT = 1
+		if self.Table.receivers(self.Table.itemClicked)>0:
+			self.Table.itemClicked.disconnect(self.score_detail)
 		headers.append('成绩')
 		self.display_table(headers, datas, student_id, weights)
 		QApplication.processEvents()
 
 	def showStudentTable(self, headers, datas, student_id):
+		self.TABLE_CONTENT = 0
 		self.modify_score_button.setVisible(False)
 		self.modify_student_button.setVisible(True)
 		self.display_table(headers, datas, student_id)
@@ -1157,6 +1150,7 @@ class studentScoreManage(QMainWindow):
 		else:
 			self.TABLE_QUESTION_WEIGHT = None  #题型所占的权重
 			ItemIsEnabled = False
+		self.TABLE_CHANGE = False
 		self.IS_USER_CHANGEITEM = False  # 标记是否是用户改变表格 
 		self.addRow = [["" for j in range(len(headers))] for i in range(self.setting['table']['table_addRow'])] # 用于保存新增行中的数据
 		self.changeRow = {i:False for i in range(len(datas)+self.setting['table']['table_addRow'])} 			# 用于记录被修改过的行
@@ -1177,14 +1171,14 @@ class studentScoreManage(QMainWindow):
 				node = QTableWidgetItem(str(data))
 				node.setTextAlignment(Qt.AlignCenter)
 				self.Table.setItem(i,j,node)
-				if ItemIsEnabled and j==len(item)-1: #禁止修改总成绩
+				if (self.TABLE_CONTENT==1 and j==len(item)-1) or self.TABLE_CONTENT == 2: #禁止修改总成绩
 					node.setFlags(Qt.ItemIsEnabled)
 		for i, item in enumerate(self.addRow):
 			for j, data in enumerate(item):
 				node = QTableWidgetItem(str(data))
 				node.setTextAlignment(Qt.AlignCenter)
 				self.Table.setItem(i+len(datas),j,node)
-				if j==len(item)-1 and ItemIsEnabled:
+				if (self.TABLE_CONTENT==1 and j==len(item)-1) or self.TABLE_CONTENT == 2:
 					node.setFlags(Qt.ItemIsEnabled)
 		self.IS_USER_CHANGEITEM = True
 
@@ -1819,7 +1813,7 @@ class studentScoreManage(QMainWindow):
 		self.r_widget.setLayout(vlayout)
 		self.r_widget.move(0,40)
 		self.r_widget.show()
-		
+
 	def initFuncButton(self):
 		checkScore_button = QPushButton(" 总成绩 ",self.func_button_widget)
 		checkScore_button.move(10,10)
@@ -1875,26 +1869,74 @@ class studentScoreManage(QMainWindow):
 			self.course_Tree.setExpanded(False)
 
 
+	def score_detail(self):
+		row = self.Table.currentRow()
+		col = self.Table.currentColumn()
+		if col<2 or col==len(self.TABLE_HEADERS) -1:
+			return
+		widget = QDialog(self)
+		widget.setWindowTitle('成绩详情')
+		studentid = self.STUDENT_ID[self.Table.item(row,0).text().strip()]
+		exam = self.database.exam_table.find(classid = self.CLASSID, courseid = self.COURSEID,examName=self.TABLE_HEADERS[col])[0]
+		question_type = exam[-2].split('<|>')
+		question_weights = exam[-1].split('-')
+		examid = exam[0]
+		score = self.database.escore_table.find(studentid = studentid, examid = examid, classid = self.CLASSID, courseid = self.COURSEID)
+
+		vlayout = QVBoxLayout()
+		if score!=[]:
+			score_json = json.loads(score[0][-1])
+			for i,qname in enumerate(question_type):
+				h = QHBoxLayout()
+				h.addWidget(QLabel(qname+'({}%): '.format(question_weights[i])))
+				h.setSpacing(5)
+				h.addWidget(QLabel("" if score_json[qname]==None else score_json[qname]))
+				vlayout.addLayout(h)
+		else:
+			for i,qname in enumerate(question_type):
+				h = QHBoxLayout()
+				h.addWidget(QLabel(qname+'({}%): '.format(question_weights[i])))
+				h.addWidget(QLabel(""))
+				vlayout.addLayout(h)
+		widget.setMinimumWidth(225)
+		widget.move(QCursor.pos())
+		widget.setLayout(vlayout)
+		widget.exec_()
+
+
+		
 	def show_total_score(self):
 		if self.COURSEID == None or self.CLASSID == None:
 			QMessageBox.warning(self,'查看失败','请选择课程、班级')
 			return
-		headers, datas, all_exam_name,exam_weights = self.get_total_score(self.COURSEID, self.CLASSID)
-		self.show_single_score(headers,datas,None,exam_weights)
-		self.SHOW_SINGLE = False
+		if self.Table.receivers(self.Table.itemClicked)==0:
+			self.Table.itemClicked.connect(self.score_detail)
+
+		headers, datas, all_exam_name, exam_weights, studentid = self.get_total_score(
+			self.COURSEID,
+			self.CLASSID,
+			self.CURRENTCOL,
+			self.REVERSE
+		)
+		headers.append('成绩')
+		self.TABLE_CONTENT = 2
+		self.display_table(headers, datas, studentid, exam_weights)
 		self.setRightWindow(all_exam_name,exam_weights)
+		QApplication.processEvents()
 	
 	def get_total_score(self, courseid, classid ,sort_col= 0, reverse = False):#查看所有成绩，禁止修改表格，可以修改考试所占比重
 		all_exam_name, examName_to_id = self.database.getExamName(courseid = courseid, classid = classid)
 		all_students = self.database.student_table.find(classid = classid, course_id = courseid)
 		all_exam_score = {}
 		exam_weights = {}
+		student_id = {}
 		if all_students == []: # 学生为空也要初始化考试信息
 			for exam in all_exam_name:
 				exam_detail = self.database.exam_table.find(id=examName_to_id[exam]) # 获取该场考试详情
 				exam_weights[exam] = exam_detail[0][-3]   			# 考试比重 用于显示成绩信息
 		else:
 			for student in all_students: #对于该班级所有的学生
+				student_id[student[1]] = student[0]
 				all_score = []
 				for exam in all_exam_name: # 每个学生的每场考试成绩
 					result = {}
@@ -1946,7 +1988,7 @@ class studentScoreManage(QMainWindow):
 			datas = sorted(datas, key = lambda record:record[1], reverse = reverse)
 		else:
 			datas = sorted(datas, key = lambda record:float(record[sort_col]),reverse = reverse)
-		return headers, datas, all_exam_name,exam_weights
+		return headers, datas, all_exam_name,exam_weights,student_id
 
 	def setRightWindow(self,all_exam_name, exam_weights):
 		if self.r_widget != None:
@@ -2004,7 +2046,7 @@ class studentScoreManage(QMainWindow):
 	def searchPre(self):
 		if self.showAll == True:
 			for row in self.search_rows:
-				self.searchRow(row,'#BFB8B8')#恢复表格正常的颜色
+				self.setColumnColor(row,self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 			self.showAll = False
 		if self.res_is_null:
 			QMessageBox.information(self,'搜索结果','内容没找到！')
@@ -2013,12 +2055,12 @@ class studentScoreManage(QMainWindow):
 			QMessageBox.information(self,'搜索结果','已到达第一个搜索结果')
 			return
 		else:
-			self.searchRow(self.search_rows[self.scrollIndex],'#BFB8B8')#恢复表格正常的颜色
+			self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 			self.scrollIndex -= 1                                         #获取其行号
-			self.searchRow(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
+			self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
 			self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
 	
-	def searchRow(self, row, backgroundcolor=''):
+	def setColumnColor(self, row, backgroundcolor=''):
 		temp = self.IS_USER_CHANGEITEM
 		self.IS_USER_CHANGEITEM = False
 		for i in range(len(self.TABLE_HEADERS)):
@@ -2028,12 +2070,12 @@ class studentScoreManage(QMainWindow):
 	def total_search_Res(self):
 		self.showAll = True
 		for row in self.search_rows:
-			self.searchRow(row,self.setting['table']['search_select_color'])#恢复表格正常的颜色
+			self.setColumnColor(row,self.setting['table']['search_select_color'])#恢复表格正常的颜色
 
 	def search(self):
 		if self.showAll == True:
 			for row in self.search_rows:
-				self.searchRow(row,'#BFB8B8')#恢复表格正常的颜色
+				self.setColumnColor(row,self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 			self.showAll = False
 
 		if self.search_rows==[]:
@@ -2044,10 +2086,10 @@ class studentScoreManage(QMainWindow):
 			return 
 
 		if self.scrollIndex!= -1:	
-			self.searchRow(self.search_rows[self.scrollIndex],'#BFB8B8')#恢复表格正常的颜色
+			self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 		
 		self.scrollIndex+=1
-		self.searchRow(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
+		self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
 		self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
 
 	def showSearch(self):
@@ -2057,15 +2099,15 @@ class studentScoreManage(QMainWindow):
 
 	def hideSearch(self):
 		self.searchFrame.setVisible(False)
-		# for row in self.search_rows:
-		# 	self.searchRow(row,'#BFB8B8')#恢复表格正常的颜色
+		for row in self.search_rows:
+			self.setColumnColor(row,self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 
 	def findRes(self):
 		search_content = self.search_lineEdit.text().strip()
 		items = self.Table.findItems(search_content, Qt.MatchExactly)#遍历表查找对应的item
 		if self.search_rows!=[]:
 			for row in self.search_rows:
-				self.searchRow(row,'#BFB8B8')#恢复表格正常的颜色
+				self.setColumnColor(row,self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 		self.search_rows = list(set([item.row() for item in items]))
 		self.search_rows.sort()
 
@@ -2119,6 +2161,12 @@ class studentScoreManage(QMainWindow):
 		self.searchFrame.setVisible(False)
 
 	def closeEvent(self,event):
+		
+		if self.TABLE_CHANGE:
+			select = QMessageBox.information(self,'关闭','数据改动尚未保存,是否退出？',QMessageBox.Yes|QMessageBox.No)
+			if select == QMessageBox.No:
+				event.ignore()
+				return
 		print('close')
 		self.database.closeDB()
 

@@ -12,6 +12,7 @@ QTableWidget:item{width:80px;height:24px;}
 QTableWidget:item:selected{border:2px solid #217346;color:black;}
 
 
+QDialog{background:#e6d4ae;}
 
 QLineEdit{color:red;}
 QSpinBox{color:#3AF84D;}
