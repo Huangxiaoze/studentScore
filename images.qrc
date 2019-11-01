@@ -4,6 +4,7 @@
 <file alias="images/2.jpg">images/2.jpg</file>
 <file alias="images/add1.ico">images/add1.ico</file>
 <file alias="images/add2.ico">images/add2.ico</file>
+<file alias="images/addpage.png">images/addpage.png</file>
 <file alias="images/b2.jpg">images/b2.jpg</file>
 <file alias="images/blackboard.ico">images/blackboard.ico</file>
 <file alias="images/class.ico">images/class.ico</file>
@@ -16,26 +17,37 @@
 <file alias="images/del2.ico">images/del2.ico</file>
 <file alias="images/del3.ico">images/del3.ico</file>
 <file alias="images/del_q.ico">images/del_q.ico</file>
+<file alias="images/down.png">images/down.png</file>
+<file alias="images/down_hover.png">images/down_hover.png</file>
 <file alias="images/dump.ico">images/dump.ico</file>
 <file alias="images/exam1.ico">images/exam1.ico</file>
 <file alias="images/exam2.ico">images/exam2.ico</file>
 <file alias="images/exam3.ico">images/exam3.ico</file>
 <file alias="images/exam_487px_1216689_easyicon.net.png">images/exam_487px_1216689_easyicon.net.png</file>
+<file alias="images/left.png">images/left.png</file>
+<file alias="images/left_hover.png">images/left_hover.png</file>
 <file alias="images/loadScore.ico">images/loadScore.ico</file>
 <file alias="images/loadScore2 - 副本.ico">images/loadScore2 - 副本.ico</file>
 <file alias="images/loadScore2.ico">images/loadScore2.ico</file>
 <file alias="images/printer.ico">images/printer.ico</file>
 <file alias="images/question.ico">images/question.ico</file>
+<file alias="images/right.png">images/right.png</file>
+<file alias="images/right_hover.png">images/right_hover.png</file>
 <file alias="images/s.ico">images/s.ico</file>
 <file alias="images/search.ico">images/search.ico</file>
 <file alias="images/search48px.ico">images/search48px.ico</file>
 <file alias="images/search96px.ico">images/search96px.ico</file>
 <file alias="images/student.ico">images/student.ico</file>
+<file alias="images/subpage.png">images/subpage.png</file>
 <file alias="images/th.jpg">images/th.jpg</file>
+<file alias="images/tiao.png">images/tiao.png</file>
 <file alias="images/totalScore.ico">images/totalScore.ico</file>
+<file alias="images/up.png">images/up.png</file>
+<file alias="images/up_hover.png">images/up_hover.png</file>
 <file alias="images/wico.ico">images/wico.ico</file>
 <file alias="images/windowIcon.ico">images/windowIcon.ico</file>
 <file alias="images/windowIcon.png">images/windowIcon.png</file>
+<file alias="images/新建文件夹">images/新建文件夹</file>
 <file alias="qss/style.qss">qss/style.qss</file>
 </qresource>
 </RCC>

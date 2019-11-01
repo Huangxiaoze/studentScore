@@ -46,7 +46,9 @@ class studentScoreManage(QMainWindow):
 		初始化窗口
 		"""
 		window_pale = QPalette() 
-		window_pale.setBrush(self.backgroundRole(),QBrush(QPixmap(":./images/2.jpg"))) 
+		pixmap = QPixmap(":./images/2.jpg")
+		window_pale.setBrush(self.backgroundRole(),QBrush(pixmap)) 
+		#self.setAttribute(Qt.WA_TranslucentBackground)
 		# desktop = QApplication.desktop()
 		# screenRect = desktop.screenGeometry()
 		# height = screenRect.height()
@@ -58,37 +60,27 @@ class studentScoreManage(QMainWindow):
 		self.setWindowIcon(QIcon(':./images/wico.ico'))
 		self.setWindowTitle('成绩管理')
 
-		self.h_splitter = QSplitter() #视图布局
-		self.v_splitter = QSplitter()
+		self.h_splitter = QSplitter()  # 视图布局
+		self.leftview = QFrame()       # 左视图
+		self.rightwidget = QWidget()   # 右视图
 		self.scoreTree = QTreeWidget() # 成绩查看
 		self.Table = QTableWidget()    # 成绩表
-		self.rightwidget = QWidget() #右视图
-		self.func_button_widget = QWidget()
-
-		self.v_splitter.setOrientation(Qt.Vertical)
-		self.v_splitter.addWidget(self.func_button_widget)
-		self.v_splitter.addWidget(self.scoreTree)
-		self.v_splitter.setStretchFactor(0,1.5)
-		self.v_splitter.setStretchFactor(1,8.5)
-		self.v_splitter.setCollapsible(0,True)
-		
-
-		self.h_splitter.addWidget(self.v_splitter)
-		self.h_splitter.addWidget(self.Table)
-		self.h_splitter.addWidget(self.rightwidget)
-		self.h_splitter.setSizes([200,940,400])
 
 		self.setCentralWidget(self.h_splitter) # 先添加到QMainWindow, 再初始化，不然h_splitter会覆盖掉搜索界面
 		self.initSetting()
-		self.initFuncButton()
+		self.initLeftView()
 		self.initScoreTree()
 		self.initScoreTable()
 		self.initExamMessage()
 		self.initMenu()
 		self.initSearchWindow()
 
-		
 		self.setStyleSheet(loadQSS.getStyleSheet('./qss/style.qss'))
+
+		self.h_splitter.addWidget(self.leftview)
+		self.h_splitter.addWidget(self.Table)
+		self.h_splitter.addWidget(self.rightwidget)
+		self.h_splitter.setSizes([200,940,400])
 
 	def initSetting(self):
 		with open('./setting.json','r') as f:
@@ -1296,18 +1288,19 @@ class studentScoreManage(QMainWindow):
 		self.load_examid = self.database.exam_table.find(examName = examName, courseid = self.courseid, classid = self.classid)[0][0]
 		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
 
-		d_students = [(n[cols[0]-1],n[cols[1]-1]) for n in datas] #（学号， 姓名）
-		s_students = [(n[1],n[2]) for n in all_students]
+		d_students = {n[cols[0]-1]:n[cols[1]-1] for n in datas} #（学号， 姓名）
+		s_students = {n[1]:n[2] for n in all_students}
 
-		#获取到excel表中的学生成绩记录和数据库中的学生成绩记录后检查，两者的学生人数是否一致，不一致的话，不在数据库中的学生需要添加到数据库，已经在数据库中的学生不在成绩表中需要将其成绩设置为0
-		d_sub_s = list(set(d_students) - set(s_students))
-		s_sub_d = list(set(s_students) - set(d_students))
-		for student in d_sub_s: # 数据表减去学生表中剩下的学生即是没有被登记在学生表中的学生，需要添加到学生表中。
-			self.database.student_table.insert(student[0],student[1],self.classid,self.courseid)
-		for student in s_sub_d: # 学生表减去成绩表中的学生剩下的即是没有考试成绩记录的学生，需要在末尾添加成绩。
-			student = list(student) #[学号， 姓名]
-			student.extend([None for i in range(len(cols)-2)]) # 各个成绩
-			datas.append(tuple(student))
+		# 获取到excel表中的学生成绩记录和数据库中的学生成绩记录后检查，两者的学生人数是否一致，不一致的话，不在数据库中的学生需要添加到数据库，已经在数据库中的学生不在成绩表中需要将其成绩设置为0
+		# 仅以学号即可区分
+		d_sub_s = list(set(d_students.keys()) - set(s_students.keys()))
+		s_sub_d = list(set(s_students.keys()) - set(d_students.keys()))
+		for number in d_sub_s: # 数据表减去学生表中剩下的学生即是没有被登记在学生表中的学生，需要添加到学生表中。
+			self.database.student_table.insert(number, d_students[number],self.classid,self.courseid)
+		# for number in s_sub_d: # 学生表减去成绩表中的学生剩下的即是没有考试成绩记录的学生，需要在末尾添加成绩。
+		# 	student = [number,s_students[number]] #[学号， 姓名]
+		# 	student.extend([None for i in range(len(cols)-2)]) # 各个成绩
+		# 	datas.append(tuple(student))
 
 		#更新学生id
 		all_students = self.database.student_table.find(course_id = self.courseid,classid = self.classid)
@@ -1317,8 +1310,8 @@ class studentScoreManage(QMainWindow):
 			student_dict[student[1]] = student[0]
 
 		for s_score in datas:
-			if (s_score[0],s_score[1]) in s_sub_d: # 没有成绩记录的学生不存其成绩
-				break
+			# if s_score[0] in s_sub_d: # 没有成绩记录的学生不存其成绩
+			# 	break
 			score = {}
 			for i, qname in enumerate(self.question_name):
 				score[qname] = s_score[i+2] 
@@ -1814,21 +1807,28 @@ class studentScoreManage(QMainWindow):
 		self.r_widget.move(0,40)
 		self.r_widget.show()
 
-	def initFuncButton(self):
-		checkScore_button = QPushButton(" 总成绩 ",self.func_button_widget)
+	def initLeftView(self):
+		button_widget = QFrame()
+		checkScore_button = QPushButton(" 总成绩 ",button_widget)
 		checkScore_button.move(10,10)
 		checkScore_button.setStyleSheet('border-radius:6px;border:1px solid black;background:black;padding:6px;')
 		checkScore_button.clicked.connect(self.show_total_score)
 
-		self.modify_score_button = QPushButton("更改成绩",self.func_button_widget)
+		self.modify_score_button = QPushButton("更改成绩",button_widget)
 		self.modify_score_button.move(100,10)
 		self.modify_score_button.clicked.connect(self.modifyScore) # 
 		self.modify_score_button.setVisible(False)
 
-		self.modify_student_button = QPushButton('更改学生',self.func_button_widget)
+		self.modify_student_button = QPushButton('更改学生',button_widget)
 		self.modify_student_button.move(100, 10)
 		self.modify_student_button.clicked.connect(self.modifyStudent)
 		self.modify_student_button.setVisible(False)
+		button_widget.setMinimumHeight(45)
+		vlayout = QVBoxLayout()
+		vlayout.addWidget(button_widget)
+		vlayout.addWidget(self.scoreTree)
+		vlayout.setContentsMargins(0,0,0,00)
+		self.leftview.setLayout(vlayout)
 
 	def initScoreTree(self):    
 
@@ -2131,6 +2131,9 @@ class studentScoreManage(QMainWindow):
 		self.search_lineEdit.setPlaceholderText('请输入搜索内容')
 		self.search_lineEdit.setStyleSheet('background:white;')
 		self.search_lineEdit.editingFinished.connect(self.findRes)
+		self.search_lineEdit.setMinimumHeight(self.setting['search']["height"]-20)
+		self.search_lineEdit.setAlignment(Qt.AlignCenter)
+		self.search_lineEdit.setFont(QFont('宋体',12))
 		quit_button = QPushButton("退出")
 		quit_button.setStyleSheet('background:black;')
 		quit_button.clicked.connect(self.hideSearch)
@@ -2146,7 +2149,8 @@ class studentScoreManage(QMainWindow):
 		findNext = QPushButton('全部')
 		findNext.setStyleSheet('background:black;')
 		findNext.clicked.connect(self.total_search_Res)
-		self.search_lineEdit.setMinimumHeight(self.setting['search']["height"]-20)
+
+
 		hlayout = QHBoxLayout()
 		hlayout.addWidget(QLabel('               '))
 		hlayout.addWidget(self.search_lineEdit)

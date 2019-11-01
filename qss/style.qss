@@ -2,15 +2,14 @@ QPushButton:hover{color:#EF7F7F;}
 QPushButton:pressed{color:red;}
 QPushButton{border-radius:6px;border:1px solid black;background:black;padding:6px;color:yellow;}
 
-QSplitter:handle{background:#69F053;border-radius:5px;border-style:outset;border:solid red 2px;}
-QSplitter{border:5px solid #69F053;}
+QSplitter:handle{background:#69F053;border-style:outset;}
+
 
 QTableWidget QHeaderView:section{background:#e6e6e6;}
 QTableWidget QHeaderView:section:hover{background:#9fd5b7;}
 QTableWidget{background:rgb(255,255,255,0);color:black;gridline-color:#d4d4d4;selection-background-color:#c6c6c6;}
 QTableWidget:item{width:80px;height:24px;}
 QTableWidget:item:selected{border:2px solid #217346;color:black;}
-
 
 QDialog{background:#e6d4ae;}
 
@@ -20,3 +19,119 @@ QComboBox{color:#5BCCFF;}
 
 QTreeWidget{color:#D731F0;text-align:center;background:#e6d4ae;}
 QTreeWidget QHeaderView:section{background:#A2F5E7;}
+
+
+QScrollBar:vertical
+{
+	width:15px;
+	background:rgba(0,0,0,0%);
+	margin:0px,0px,0px,0px;
+	padding-top:16px;
+	padding-bottom:16px;
+}
+QScrollBar::handle:vertical
+{
+	width:15px;
+	background:rgba(0,0,0,40%);
+	border-radius:4px;
+	min-height:20;
+}
+QScrollBar::handle:vertical:hover
+{
+	width:15px;
+	background:rgba(0,0,0,60%);
+	border-radius:4px;
+	min-height:20;
+}
+QScrollBar::add-line:vertical
+{
+	height:16px;width:15px;
+	border-image:url(:./images/down.png);
+	subcontrol-position:bottom;
+}
+QScrollBar::sub-line:vertical
+{
+	height:16px;width:15px;
+	border-image:url(:./images/up.png);
+	subcontrol-position:top;
+}
+QScrollBar::add-line:vertical:hover
+{
+	height:16px;width:15px;
+	border-image:url(:./images/down_hover.png);
+	subcontrol-position:bottom;
+}
+QScrollBar::sub-line:vertical:hover
+{
+	height:16px;width:15px;
+	border-image:url(:./images/up_hover.png);
+	subcontrol-position:top;
+}
+QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical
+{
+	background:rgba(0,0,0,15%);
+	border-radius:4px;
+}
+
+
+QScrollBar:horizontal
+{
+	height:15px;
+	background:rgba(0,0,0,0%);
+	margin:0px,0px,0px,0px;
+	padding-right:16px;
+	padding-left:16px;
+}
+QScrollBar::handle:horizontal
+{
+	width:15px;
+	background:rgba(0,0,0,40%);
+	border-radius:4px;
+	min-height:20;
+}
+QScrollBar::handle:horizontal:hover
+{
+	width:15px;
+	background:rgba(0,0,0,60%);
+	border-radius:4px;
+	min-height:20;
+}
+QScrollBar::add-line:horizontal
+{
+	height:15px;width:16px;
+	border-image:url(:./images/right.png);
+	subcontrol-position:right;
+}
+QScrollBar::sub-line:horizontal
+{
+	height:15px;width:16px;
+	border-image:url(:./images/left.png);
+	subcontrol-position:left;
+}
+QScrollBar::add-line:horizontal:hover
+{
+	height:15px;width:16px;
+	border-image:url(:./images/right_hover.png);
+	subcontrol-position:right;
+}
+QScrollBar::sub-line:horizontal:hover
+{
+	height:15px;width:16px;
+	border-image:url(:./images/left_hover.png);
+	subcontrol-position:left;
+}
+QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal
+{
+	background:rgba(0,0,0,15%);
+	border-radius:4px;
+}
+
+
+
+
+
+
+
+
+
+

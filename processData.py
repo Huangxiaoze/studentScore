@@ -32,17 +32,26 @@ def loadScore(filepath,args:list):
 	sheets = workbook.sheet_names()
 	worksheet = workbook.sheet_by_name(sheets[0])
 	datas = []
-	for x in range(0, worksheet.nrows):
-		row = worksheet.row(x)
+	for row in range(0, worksheet.nrows):
+		data_detail = worksheet.row(row)
 		data = []
-		for i in args:
-			if i==args[0]: #学号确保为整数
-				data.append(str(row[int(i)-1].value).replace('.',''))
-			elif i==0:
+		for i,index in enumerate(args):
+			value = data_detail[int(index)-1].value
+			if i == 0: # 学号
+				if worksheet.cell(row,index-1).ctype != 2: # 学号栏不为数字，则不保存此条成绩记录
+					break
+				data.append(str(int(value)))
+			elif index == 0: # 不导入
 				data.append(None)
-			else:
-				data.append(str(row[int(i)-1].value))
-		datas.append(tuple(data))
+			elif i==1: # 姓名
+				data.append(str(value))
+			else:  # 成绩
+				if worksheet.cell(row,index-1).ctype != 2: # 成绩不为数字，则不导入
+					data.append(None)
+				else:
+					data.append(str(value))
+		if data:
+			datas.append(tuple(data))
 	return datas
 
 def set_style(font_name,height,bold=False):
@@ -128,4 +137,4 @@ def dumpData(filePath, headers, datas, weights=None, sheet_name="sheet1"):
 		return (False, '文件不存在')
 
 if __name__ == '__main__':
-	print(loadScore('./score.xls',[3,4,5]))
+	print(loadScore('./score.xls',[1,2,3,4,5]))
