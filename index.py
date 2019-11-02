@@ -177,9 +177,20 @@ class studentScoreManage(QMainWindow):
 	def showSoftwareMessage(self):
 		widget = QDialog()
 		widget.setWindowTitle('关于')
+		w = QWidget()
+		w.resize(200,2000)
+		scroll_area = QScrollArea()
+		scroll_area.setWidget(w)
+		vlayout = QVBoxLayout()
+		vlayout.addWidget(scroll_area)
+		widget.setLayout(vlayout)
+
+
+		
 
 		widget.exec_()
 	def delQuestion(self):
+		self.status_bar.showMessage('删除题型')
 		widget = QDialog(self)
 		widget.setWindowTitle("删除题型")
 		self.checkboxs_q = []
@@ -196,16 +207,17 @@ class studentScoreManage(QMainWindow):
 		vlayout.addWidget(button)
 		widget.setLayout(vlayout)
 		widget.exec_()
+		self.status_bar.showMessage('')
+
 	def deleteQ(self,parent):
 		del_qid = [self.questionName_to_id[checkbox.text()] for checkbox in self.checkboxs_q if checkbox.checkState()==Qt.Checked]
 		if del_qid == []:
-			QMessageBox.information(self,'删除','请选择题型')
+			self.showMessageBox(QMessageBox.Information,'删除','请选择题型')
 			return
 		for qid in del_qid:
 			self.database.question_table.delete(id = qid)
 		parent.close()
-		QMessageBox.information(self,'删除','删除成功')
-
+		self.showMessageBox(QMessageBox.Information,'删除','删除成功')
 
 
 	def printScoreTable(self):
@@ -232,6 +244,7 @@ class studentScoreManage(QMainWindow):
 		"""
 		添加题型窗口
 		"""
+		self.status_bar.showMessage('添加题型')
 		widget = QDialog(self)
 		widget.setWindowTitle('添加题型')
 		descLabel = QLabel('题型名称：')
@@ -249,6 +262,7 @@ class studentScoreManage(QMainWindow):
 
 		widget.setLayout(vlayout)
 		widget.exec_()
+		self.status_bar.showMessage('')
 
 	def saveQuestion(self,parent):
 		"""
@@ -256,14 +270,14 @@ class studentScoreManage(QMainWindow):
 		"""
 		questionName = self.descLineEdit.text().strip()#去掉前后空白字符
 		if questionName == '':
-			QMessageBox.warning(self,'添加失败','题型名称不能为空',QMessageBox.Ok)
+			self.showMessageBox(QMessageBox.Information,'添加失败','题型名称不能为空')
 			return
 		res = self.database.question_table.find(questionName=questionName)
 		if res!=[]:
-			QMessageBox.information(self,'添加失败','该题型已存在',QMessageBox.Ok)
+			self.showMessageBox(QMessageBox.Information,'添加失败','该题型已存在')
 			return		
 		self.database.question_table.insert(questionName)
-		QMessageBox.information(parent,'添加题型','成功')
+		self.showMessageBox(QMessageBox.Information,'添加题型','添加成功')
 
 	def addExam(self,parent): 
 		"""
@@ -272,13 +286,13 @@ class studentScoreManage(QMainWindow):
 		examName = self.examName_lineedit.text().strip()
 
 		if self.createexam_courseCombox.currentText() == '':
-			QMessageBox.warning(self,'添加失败','请选择课程')
+			self.showMessageBox(QMessageBox.Warning,'添加失败','请选择课程')
 			return		
 		elif self.createexam_classCombox.currentText() == '':
-			QMessageBox.warning(self,'添加失败','请选择班级')
+			self.showMessageBox(QMessageBox.Warning,'添加失败','请选择班级')
 			return		
 		elif examName == '':
-			QMessageBox.warning(self,'添加失败','考试名称不能为空')
+			self.showMessageBox(QMessageBox.Warning,'添加失败','考试名称不能为空')
 			return
 		x,courseName_to_id = self.database.getCourseName()
 		y,className_to_id = self.database.getClassName()
@@ -287,11 +301,15 @@ class studentScoreManage(QMainWindow):
 		
 		examDate = str(self.examTime.date().toString("yyyy-MM-dd"))
 		if self.database.exam_table.find(classid=classid, courseid = courseid,examName=examName) != []:
-			QMessageBox.warning(parent,'错误','{0} {1} {2} 已存在，请更改考试名称。'.format(
-				self.createexam_courseCombox.currentText(),
-				self.createexam_classCombox.currentText(),
-				examName
-				),QMessageBox.Ok)
+			self.showMessageBox(
+				QMessageBox.Warning,
+				'添加失败',
+				'{0} {1} {2} 已存在，请更改考试名称。'.format(
+						self.createexam_courseCombox.currentText(),
+						self.createexam_classCombox.currentText(),
+						examName
+					)
+			)
 			return
 
 		questionName = []
@@ -304,7 +322,7 @@ class studentScoreManage(QMainWindow):
 				weight.append(self.weights[i].text())
 				headers_data.append(checkbox.text())
 		if questionName==[]:
-			QMessageBox.warning(parent,'错误','请选择题型',QMessageBox.Ok)
+			self.showMessageBox(QMessageBox.Warning,'添加失败','请选择题型')
 			return
 
 		question_name = "<|>".join(questionName)
@@ -327,7 +345,7 @@ class studentScoreManage(QMainWindow):
 		item.setCheckState(0, Qt.Unchecked)
 		self.exam_Tree.setExpanded(True)
 		QApplication.processEvents()
-		select = QMessageBox.information(parent,'添加考试','添加成功',QMessageBox.Ok|QMessageBox.Cancel)
+		self.showMessageBox(QMessageBox.Warning,'添加考试','添加成功')
 
 	def getStudentData(self, **args): #班级确定 学号唯一
 
@@ -438,6 +456,7 @@ class studentScoreManage(QMainWindow):
 		"""
 		添加考试窗口
 		"""
+		self.status_bar.showMessage('添加考试')
 		widget = QDialog(self)
 		widget.setWindowTitle('添加考试')
 		courselabel = QLabel('课程')
@@ -525,12 +544,14 @@ class studentScoreManage(QMainWindow):
 			self.createexam_classCombox.addItem(className)
 		widget.setLayout(vlayout)
 		widget.exec_()
+		self.status_bar.showMessage('')
 
 
 	def sayHello(self):
 		print("hello")
 
 	def loadStudentData(self, courseName=None, className=None):
+		self.status_bar.showMessage('导入学生')
 		widget = QDialog(self)
 		widget.setWindowTitle('导入学生')
 		courselabel = QLabel('请选择课程')
@@ -598,6 +619,7 @@ class studentScoreManage(QMainWindow):
 			self.l_courseCombox.addItem(courseName)
 			self.l_classCombox.addItem(className)
 		widget.exec_()
+		self.status_bar.showMessage('')
 
 	def selectFile(self,parent, lineEdit):
 		dig=QFileDialog(parent)
@@ -606,29 +628,43 @@ class studentScoreManage(QMainWindow):
 			filenames=dig.selectedFiles()
 			lineEdit.setText(filenames[0])
 			#列表中的第一个元素即是文件路径，以只读的方式打开文件
+	def showMessageBox(self, icon, title, content,button_text='确定', button_role = QMessageBox.YesRole):
+		box = QMessageBox(icon,title, content,parent = self)
+		box.addButton(button_text, button_role)
+		box.exec_()	
+	def showSelectBox(self,icon,title, content,yes_content, no_content):
+		box = QMessageBox(QMessageBox.Question,title,content,parent = self)
+		yes= box.addButton(yes_content,QMessageBox.YesRole)
+		no = box.addButton(no_content,QMessageBox.NoRole)
+		box.exec_()
+		if box.clickedButton() == yes:
+			return QMessageBox.Yes
+		elif box.clickedButton() == no:
+			return QMessageBox.No
+		else:
+			return None
 
 	def loadStudent(self): #导入学生表，如果学生已经存在了，还要导入会造成数据重复，还没写这个逻辑
 		courseName = self.l_courseCombox.currentText()
 		className = self.l_classCombox.currentText()
 		filepath = self.loadS_filepath.text()
 		if courseName == '':
-			QMessageBox.warning(self,'导入失败','请选择课程')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择课程')
 			return
 		elif className == '':
-			QMessageBox.warning(self,'导入失败','请选择班级')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择班级')
 			return
 		elif filepath == '':
-			QMessageBox.warning(self,'导入失败','请选择文件')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择文件')
 			return
-
 		if not os.path.isfile(filepath):
-			QMessageBox.warning(self,'导入失败','文件不存在')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','文件不存在')
 			return
 
 		try:
 			students = processData.loadStudent(filepath,self.stunumber_spinbox.value(),self.stuname_spinbox.value())
 		except:
-			QMessageBox.information(self,'导入失败','请检查文件类型是否正确')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请检查文件类型是否正确')
 			return
 		
 		courseid = self.database.course_table.find(courseName = courseName)[0][0]
@@ -644,9 +680,10 @@ class studentScoreManage(QMainWindow):
 		headers, datas, student_id = self.getStudentData(courseid = courseid, classid = classid)
 		self.showStudentTable(headers,datas, student_id)
 		QApplication.processEvents()
-		QMessageBox.information(self,'操作结果','导入成功')
+		self.showMessageBox(QMessageBox.Information,'操作结果','导入成功')
 
 	def createClass(self, specific_course=None):
+		self.status_bar.showMessage('添加班级')
 		widget = QDialog(self)
 		widget.setWindowTitle('添加班级')
 		self.c_courseCombox = QComboBox()
@@ -677,18 +714,19 @@ class studentScoreManage(QMainWindow):
 		save_pushbutton.clicked.connect(lambda:self.saveClass(widget))
 		widget.setLayout(vlayout)
 		widget.exec_()
+		self.status_bar.showMessage('')
 
 	def saveClass(self,parent):
 		courseName = self.c_courseCombox.currentText().strip()
 		className = self.class_name.text().strip()
 		if className == '':
-			QMessageBox.warning(self,'添加失败','班级名不能为空')
+			self.showMessageBox(QMessageBox.Warning,'添加失败','班级名不能为空')
 			return
 		courseid = self.database.course_table.find(courseName = courseName)[0][0]
 
 		res = self.database.class_table.find(className=className,course_id=courseid)
 		if res!=[]:
-			QMessageBox.information(self,'添加失败','该班级已存在')
+			self.showMessageBox(QMessageBox.Warning,'添加失败','该班级已存在')
 			return
 
 		self.database.class_table.insert(className,courseid)
@@ -697,12 +735,12 @@ class studentScoreManage(QMainWindow):
 		item.setCheckState(0, Qt.Unchecked)
 		QApplication.processEvents()
 		self.class_Tree.setExpanded(True)
-		select = QMessageBox.information(self,"新建成功","是否立即导入学生？",QMessageBox.Ok|QMessageBox.Cancel)
-		if select == QMessageBox.Ok:
+		select = self.showSelectBox(QMessageBox.Question,"新建成功","是否立即导入学生？",'导入','取消')
+		if select ==  QMessageBox.Yes:
 			parent.close()
 			self.loadStudentData(courseName, className)
-
 	def createCourse(self):
+		self.status_bar.showMessage('添加课程')
 		widget = QDialog(self)
 		widget.setWindowTitle('添加课程')
 		self.courseNumber = QLineEdit(widget)
@@ -725,15 +763,16 @@ class studentScoreManage(QMainWindow):
 		widget.setLayout(vlayout)
 		widget.show()
 		widget.exec_()
-
+		self.status_bar.showMessage('')
+		
 	def saveCourse(self,parent):
 		courseNumber, courseName = self.courseNumber.text().strip(), self.courseName.text().strip()
 		if courseNumber == '' or courseName == '':
-			QMessageBox.warning(self,'添加失败','课程编号和课程名不能为空。')
+			self.showMessageBox(QMessageBox.Warning,'添加失败','课程编号和课程名不能为空。')
 			return
 		res = self.database.course_table.find(courseName=courseName)
 		if res != []:
-			QMessageBox.information(self,'添加失败','课程名已存在。')
+			self.showMessageBox(QMessageBox.Information,'添加失败','课程名已存在。')
 			return
 
 		self.database.course_table.insert(courseNumber,courseName)
@@ -742,14 +781,14 @@ class studentScoreManage(QMainWindow):
 		item.setCheckState(0, Qt.Unchecked)
 		QApplication.processEvents()
 		self.course_Tree.setExpanded(True)
-		select = QMessageBox.information(self,"新建成功","是否立即创建班级？",QMessageBox.Ok|QMessageBox.Cancel)
-		if select == QMessageBox.Ok:
+		select = self.showSelectBox(QMessageBox.Information, "新建成功","是否立即创建班级？", '确定','取消')
+		if select == QMessageBox.Yes:
 			parent.close()
 			self.createClass(courseName)
 
 	def modifyScore(self): #修改成绩 可以知道，在changeRow中记录为True的行必定发生了改变
 		if self.TABLE_CONTENT == 2:
-			QMessageBox.warning(self,'更改失败','不允许修改总成绩')
+			self.showMessageBox(QMessageBox.Warning,'更改失败','不允许修改总成绩')
 			return
 		self.IS_USER_CHANGEITEM = False
 		modify = []
@@ -800,11 +839,11 @@ class studentScoreManage(QMainWindow):
 					break
 		if not data_correct:
 			self.IS_USER_CHANGEITEM = True	
-			QMessageBox.warning(self,'更新失败','请检查数据是否正确')
+			self.showMessageBox(QMessageBox.Warning,'更新失败','请检查数据是否正确')
 			return
 		elif all_row == []:
 			self.IS_USER_CHANGEITEM = True
-			QMessageBox.information(self,'更新结果','数据没有发生改变')
+			self.showMessageBox(QMessageBox.Information,'更新结果','数据没有发生改变')
 			return
 		else:
 			check_number_index = [i for i in range(len(self.TABLE_DATA))]
@@ -820,7 +859,7 @@ class studentScoreManage(QMainWindow):
 					for r in repeat_rows:
 						self.Table.item(r,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
 					self.IS_USER_CHANGEITEM = True
-					QMessageBox.warning(self,'更改失败','学号不能重复')
+					self.showMessageBox(QMessageBox.Warning,'更改失败','学号不能重复')
 					return
 			# 学号不重复， 数据也是正确的
 			for row in add:
@@ -878,14 +917,14 @@ class studentScoreManage(QMainWindow):
 				courseid = self.COURSEID
 			)
 			self.show_single_score(headers,datas,student_id,weight_set)
-			QMessageBox.information(self,'更改结果','更改成功')
+			self.showMessageBox(QMessageBox.Information,'更改结果','更改成功')
 
 		self.IS_USER_CHANGEITEM = True		
 		return
 
 	def modifyStudent(self):
 		if self.TABLE_CONTENT == 2:
-			QMessageBox.information(self,'更改失败','不允许修改总成绩')
+			self.showMessageBox(QMessageBox.Information,'更改失败','不允许修改总成绩')
 			return
 		modify = []
 		add = []
@@ -917,11 +956,11 @@ class studentScoreManage(QMainWindow):
 				break
 		if not data_correct:
 			self.IS_USER_CHANGEITEM = True
-			QMessageBox.warning(self,'更改失败','请检查数据是否正确')
+			self.showMessageBox(QMessageBox.Warning,'更改失败','请检查数据是否正确')
 			return
 		elif modify == [] and add == [] and del_row == []:
 			self.IS_USER_CHANGEITEM = True
-			QMessageBox.information(self,'更改操作','数据没有发生改变')
+			self.showMessageBox(QMessageBox.Information,'更改操作','数据没有发生改变')
 			return
 		else:
 			check_number_index = [i for i in range(len(self.TABLE_DATA))]
@@ -938,7 +977,7 @@ class studentScoreManage(QMainWindow):
 						self.Table.item(r,0).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
 						self.Table.item(r,1).setBackground(QBrush(QColor(self.setting['table']['cell_data_repeat'])))
 					self.IS_USER_CHANGEITEM = True
-					QMessageBox.warning(self,'更改失败','学号不能重复')
+					self.showMessageBox(QMessageBox.Warning,'更改失败','学号不能重复')
 					return
 			# 学号不是重复的,数据也是正确的 do something
 			for r in add:
@@ -966,7 +1005,7 @@ class studentScoreManage(QMainWindow):
 			headers, datas, studentid = self.getStudentData(classid = self.CLASSID, courseid = self.COURSEID)
 			self.showStudentTable(headers, datas, studentid)
 			self.IS_USER_CHANGEITEM = True
-			QMessageBox.information(self,'更改结果','更改成功')
+			self.showMessageBox(QMessageBox.Information,'更改结果','更改成功')
 
 	def modifyTable(self):
 		"""
@@ -990,7 +1029,7 @@ class studentScoreManage(QMainWindow):
 			isDel = False # 当此次修改是已存在的数据时，用于判断此次操作是否是删除某一行
 			
 			if row >= len(self.TABLE_DATA):# 该新增行不为空,新增行 添加、修改 两种操作
-				if self.modify_score_button.isVisible():
+				if self.TABLE_CONTENT == 1:
 					for i in range(len(self.TABLE_HEADERS)-1):
 						if self.Table.item(row, i).text() != '': 
 							valid = True
@@ -1003,7 +1042,7 @@ class studentScoreManage(QMainWindow):
 			else: # 此次更改的行是已存在的行，对于已经存在的行，则分 修改、删除、覆盖 三种操作
 				valid = True
 				count = 0
-				if self.modify_score_button.isVisible():
+				if self.TABLE_CONTENT == 1:
 					for i in range(len(self.TABLE_HEADERS)-1):
 						if self.Table.item(row,i).text() == '':
 							count+=1
@@ -1035,7 +1074,7 @@ class studentScoreManage(QMainWindow):
 				self.IS_USER_CHANGEITEM = True
 				return
 
-			if not self.modify_score_button.isVisible(): #处于修改学生信息状态
+			if self.TABLE_CONTENT == 0: #处于修改学生信息状态
 				print('modify sutdent message')
 				if col == 0:
 					if not (processData.isInteger(currentItem.text())):
@@ -1253,22 +1292,22 @@ class studentScoreManage(QMainWindow):
 
 		# 检查课程班级考试信息是否完整
 		if courseName == '':
-			QMessageBox.warning(self,'导入失败','请选择课程')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择课程')
 			return		
 		elif className == '':
-			QMessageBox.warning(self,'导入失败','请选择班级')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择班级')
 			return		
 		elif examName == '':
-			QMessageBox.warning(self,'导入失败','请选择考试')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择考试')
 			return
 
 		# 检查文件路径是否为空，或者文件是否存在
 		filepath = self.loadscore_filepath.text()
 		if filepath == '':
-			QMessageBox.warning(self,'导入失败','请选择文件')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','请选择文件')
 			return
 		elif not os.path.isfile(filepath):
-			QMessageBox.warning(self,'导入失败','文件不存在')
+			self.showMessageBox(QMessageBox.Warning,'导入失败','文件不存在')
 			return
 
 		# 判断是否能正确获取文件数据，文件类型是否正确
@@ -1279,7 +1318,7 @@ class studentScoreManage(QMainWindow):
 		try:
 			datas = processData.loadScore(filepath,cols)
 		except:
-			QMessageBox.information(self,'导入失败','请检查文件类型是否正确')
+			self.showMessageBox(QMessageBox.Information,'导入失败','请检查文件类型是否正确')
 			return
 
 		# 数据都没有问题
@@ -1330,10 +1369,11 @@ class studentScoreManage(QMainWindow):
 					courseid = self.courseid,
 			)
 		self.show_single_score(headers,s_datas,student_id,weight_set)
-		QMessageBox.information(self,'操作结果','导入成功',QMessageBox.Ok)
+		self.showMessageBox(QMessageBox.Information,'操作结果','导入成功')
 
 
 	def loadData(self, courseName_=None, className_=None, examName_=None, examid = None):  #导入学生成绩
+		self.status_bar.showMessage('导入成绩')
 		widget = QDialog(self)
 		widget.setWindowTitle('导入到')
 		courselabel = QLabel('课程')
@@ -1403,6 +1443,7 @@ class studentScoreManage(QMainWindow):
 
 		widget.setLayout(self.question_vlayout)
 		widget.exec_()
+		self.status_bar.showMessage('')
 
 	def dumpData(self):
 		filepath, filetype = QFileDialog.getSaveFileName(self,
@@ -1418,9 +1459,9 @@ class studentScoreManage(QMainWindow):
 		success, tip = processData.dumpData(filepath, self.TABLE_HEADERS,self.TABLE_DATA, self.TABLE_QUESTION_WEIGHT)
 
 		if success:
-			QMessageBox.information(self,'成功',tip,QMessageBox.Ok)
+			self.showMessageBox(QMessageBox.Information,'成功',tip)
 		else:
-			QMessageBox.warning(self,'失败',tip,QMessageBox.Ok)
+			self.showMessageBox(QMessageBox.Warning,'失败',tip)
 
 	def addNew_from_tree(self, funcType): 
 		"""
@@ -1442,12 +1483,13 @@ class studentScoreManage(QMainWindow):
 		"""
 		currentItem = self.scoreTree.currentItem()
 		if funcType == 0: # 删除课程 或者 清空课程下的班级
-			select = QMessageBox.critical(self,
+			select = self.showSelectBox(
+				QMessageBox.Question,
 				'删除' if isDel else '清空',
 				'将删除该课程所有的数据，确定继续？' if isDel else '将清空该课程下的所有班级数据，确定继续？',
-				QMessageBox.Ok|QMessageBox.Cancel
-			)
-			if select == QMessageBox.Cancel:
+				'确定',
+				'取消')
+			if select == QMessageBox.No:
 				return
 
 			# 删除课程需要删除该课程下的班级、学生、考试、考试成绩 和该课程， 清空该课程，不需要删除该门课程即可
@@ -1469,15 +1511,16 @@ class studentScoreManage(QMainWindow):
 			if self.course_Tree.childCount() == 0:
 				self.course_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self, '操作结果','{}成功'.format('删除' if isDel else '清空'))
-
+			self.showMessageBox(QMessageBox.Information,'操作结果','{}成功'.format('删除' if isDel else '清空'))
 		elif funcType == 1: # 删除班级 或 清空班级考试
-			select = QMessageBox.critical(self,
+			select = self.showSelectBox(
+				QMessageBox.Question,
 				'删除' if isDel else '清空',
 				'将删除该班级所有的数据，确定继续？' if isDel else '将清空该班级所有考试成绩，确定继续？',
-				QMessageBox.Ok|QMessageBox.Cancel
+				'确定',
+				'取消'
 				)
-			if select == QMessageBox.Cancel:
+			if select == QMessageBox.No:
 				return
 			#isDel: true: 删除班级考试和学生，false:仅仅删除班级考试
 			self.del_one_class(self.COURSEID, self.CLASSID, isDel)
@@ -1494,17 +1537,18 @@ class studentScoreManage(QMainWindow):
 			if self.class_Tree.childCount() == 0:
 				self.class_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self, '操作结果','{}成功'.format('删除' if isDel else '清空'))
-				
+			self.showMessageBox(QMessageBox.Information,'操作结果','{}成功'.format('删除' if isDel else '清空'))
 
 		elif funcType == 2:
 			print(self.COURSEID, self.CLASSID, self.EXAMID)
-			select = QMessageBox.critical(self,
+			select = self.showSelectBox(
+				QMessageBox.Question,
 				'删除' if isDel else '清空',
 				'将清空该场考试所有的成绩，确定继续？' if not isDel else '将删除该场考试所有的数据，确定继续？',
-				QMessageBox.Ok|QMessageBox.Cancel
+				'确定',
+				'取消'
 				)
-			if select == QMessageBox.Cancel:
+			if select == QMessageBox.No:
 				return
 			#删除考试成绩
 			self.del_one_exam_score(self.EXAMID, self.COURSEID, self.CLASSID)
@@ -1515,11 +1559,16 @@ class studentScoreManage(QMainWindow):
 			if self.exam_Tree.childCount() == 0:
 				self.exam_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self,'操作结果','{}成功'.format('删除' if isDel else '清空'))
-
+			self.showMessageBox(QMessageBox.Information,'操作结果','{}成功'.format('删除' if isDel else '清空'))
 		elif funcType == 3:
-			select = QMessageBox.critical(self,'清空','将清空所有课程，确定继续？',QMessageBox.Ok|QMessageBox.Cancel)
-			if select == QMessageBox.Cancel:
+			select = self.showSelectBox(
+				QMessageBox.Question,
+				'清空',
+				'将清空所有课程，确定继续？',
+				'确定',
+				'取消'
+				)
+			if select == QMessageBox.No:
 				return
 			
 			return
@@ -1538,7 +1587,7 @@ class studentScoreManage(QMainWindow):
 			self.class_Tree.setExpanded(False)
 			self.course_Tree.setExpanded(False)
 			QApplication.processEvents()
-			QMessageBox.information(self,'操作结果','成功清空')
+			self.showMessageBox(QMessageBox.Information,'操作结果','成功清空')
 
 	def del_one_course(self,courseid):
 		all_class = self.database.class_table.find(course_id = courseid)
@@ -1711,8 +1760,14 @@ class studentScoreManage(QMainWindow):
 				self.setRightWidget()
 
 	def changeweight(self,parent): #更改权重
-		select = QMessageBox.information(parent,"更改题型权重",'确认更改？',QMessageBox.Ok|QMessageBox.Cancel)
-		if select == QMessageBox.Cancel:
+		select = self.showSelectBox(
+			QMessageBox.Question,
+			"更改题型权重",
+			'确认更改？',
+			'确定',
+			'取消'
+			)
+		if select == QMessageBox.No:
 			return
 		values = [str(w.value()) for w in self.r_weights]
 
@@ -1874,6 +1929,7 @@ class studentScoreManage(QMainWindow):
 		col = self.Table.currentColumn()
 		if col<2 or col==len(self.TABLE_HEADERS) -1:
 			return
+		self.status_bar.showMessage('成绩详情')
 		widget = QDialog(self)
 		widget.setWindowTitle('成绩详情')
 		studentid = self.STUDENT_ID[self.Table.item(row,0).text().strip()]
@@ -1902,12 +1958,13 @@ class studentScoreManage(QMainWindow):
 		widget.move(QCursor.pos())
 		widget.setLayout(vlayout)
 		widget.exec_()
+		self.status_bar.showMessage('')
 
 
 		
 	def show_total_score(self):
 		if self.COURSEID == None or self.CLASSID == None:
-			QMessageBox.warning(self,'查看失败','请选择课程、班级')
+			self.showMessageBox(QMessageBox.Warning,'查看失败','请选择课程、班级')
 			return
 		if self.Table.receivers(self.Table.itemClicked)==0:
 			self.Table.itemClicked.connect(self.score_detail)
@@ -1920,6 +1977,8 @@ class studentScoreManage(QMainWindow):
 		)
 		headers.append('成绩')
 		self.TABLE_CONTENT = 2
+		self.modify_student_button.setVisible(False)
+		self.modify_score_button.setVisible(False)
 		self.display_table(headers, datas, studentid, exam_weights)
 		self.setRightWindow(all_exam_name,exam_weights)
 		QApplication.processEvents()
@@ -2034,8 +2093,14 @@ class studentScoreManage(QMainWindow):
 		self.r_widget.show()
 
 	def changeExam_weight(self,parent,all_exam_name):
-		select = QMessageBox.information(parent,"更改考试权重",'确认更改？',QMessageBox.Ok|QMessageBox.Cancel)
-		if select == QMessageBox.Cancel:
+		select = self.showSelectBox(
+			QMessageBox.Question,
+			"更改考试权重",
+			'确认更改？',
+			'确定',
+			'取消'
+			)
+		if select == QMessageBox.No:
 			return
 		weights = [w.value() for w in self.spinboxs]
 		x, examName_to_id = self.database.getExamName(self.COURSEID, self.CLASSID)
@@ -2049,10 +2114,10 @@ class studentScoreManage(QMainWindow):
 				self.setColumnColor(row,self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 			self.showAll = False
 		if self.res_is_null:
-			QMessageBox.information(self,'搜索结果','内容没找到！')
+			self.showMessageBox(QMessageBox,Information,'搜索结果','内容没找到！')
 			return
 		if self.scrollIndex<=0:
-			QMessageBox.information(self,'搜索结果','已到达第一个搜索结果')
+			self.showMessageBox(QMessageBox.Information,'搜索结果','已到达第一个搜索结果')
 			return
 		else:
 			self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
@@ -2079,10 +2144,10 @@ class studentScoreManage(QMainWindow):
 			self.showAll = False
 
 		if self.search_rows==[]:
-			QMessageBox.information(self,'搜索结果','内容没找到！')
+			self.showMessageBox(QMessageBox.Information,'搜索结果','内容没找到！')
 			return  
 		elif self.scrollIndex == len(self.search_rows)-1:
-			QMessageBox.information(self,'搜索结果','已到达最后一个搜索结果')
+			self.showMessageBox(QMessageBox.Information,'搜索结果','已到达最后一个搜索结果')
 			return 
 
 		if self.scrollIndex!= -1:	
@@ -2167,7 +2232,13 @@ class studentScoreManage(QMainWindow):
 	def closeEvent(self,event):
 		
 		if self.TABLE_CHANGE:
-			select = QMessageBox.information(self,'关闭','数据改动尚未保存,是否退出？',QMessageBox.Yes|QMessageBox.No)
+			select = self.showSelectBox(
+				QMessageBox.Question,
+				'关闭',
+				'数据改动尚未保存,是否退出？',
+				'确定',
+				'取消'
+				)
 			if select == QMessageBox.No:
 				event.ignore()
 				return
@@ -2186,9 +2257,9 @@ class studentScoreManage(QMainWindow):
 			if event.key() == Qt.Key_F:
 				self.showSearch()
 			if event.key() == Qt.Key_S:
-				if self.modify_student_button.isVisible():
+				if self.TABLE_CONTENT == 0:
 					self.modifyStudent()
-				elif self.modify_score_button.isVisible():
+				elif self.TABLE_CONTENT == 1:
 					self.modifyScore()
 		elif event.key() == Qt.Key_Escape:
 			self.hideSearch()
