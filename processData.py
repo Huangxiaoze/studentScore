@@ -88,7 +88,7 @@ def dumpData(filePath, headers, datas, weights=None, sheet_name="sheet1"):
 	# 保存表头
 	for i,header in enumerate(headers):
 		# 此处需要修改，将weights类型统一
-		if weights!=None and 2<=i<len(headers)-1:
+		if weights!=None and 2<=i<2+len(weights.keys()):
 			header += '({}%)'.format(weights[header])
 		worksheet.write(0,i, header ,set_style('宋体',22,True))
 		size[i] = get_wordSize(header)+space*2
@@ -98,15 +98,16 @@ def dumpData(filePath, headers, datas, weights=None, sheet_name="sheet1"):
 		'A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
 		'AA','AB','AC','AD','AE','AF','AG','AH','AI','AJ','AK','AL','AM','AN','AO','AP','AQ','AR','AS','AT','AU','AV','AW','AX','AY','AZ'
 	]
-	
+	print(weights)
 	for i,data in enumerate(datas):
 		SUM = []
 		for j,cell_data in enumerate(data):
 			cell_data = str(cell_data)
 			if weights!=None: # 导出成绩
-				if 2<=j<len(headers)-1:
+				if 2<=j<2+len(weights.keys()):
 					SUM.append(alph[j]+str(i+2)+"*"+str(weights[headers[j]]/100))
-				if j!=len(data)-1: # 非总成绩一列
+
+				if j != 2+len(weights.keys()): # 非总成绩一列
 					if isNum(cell_data): # 单元格是题型的成绩数据 或者 学号
 						worksheet.write(i+1,j, float(cell_data), set_style('宋体',18))
 					else:
