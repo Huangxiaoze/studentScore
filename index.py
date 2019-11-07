@@ -16,7 +16,7 @@ import images
 #仅仅windows支持
 import ctypes
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('myappid')
-#  background:#474646;
+####
 
 class loadQSS:
 	@staticmethod
@@ -26,7 +26,7 @@ class loadQSS:
 
 class studentScoreManage(QMainWindow):
 	def __init__(self):
-		splash = QSplashScreen(QPixmap(":./images/wico.ico"))
+		splash = QSplashScreen(QPixmap(":./images/start.ico"))
 		splash.showMessage("加载中... ", Qt.AlignHCenter | Qt.AlignBottom, Qt.black)
 		splash.show()  
 		super().__init__()
@@ -162,7 +162,7 @@ class studentScoreManage(QMainWindow):
 		self.load_toolbar.addAction(self.dump_action)
 		self.load_toolbar.addAction(self.load_studentData_action)
 		
-		self.func_toolbar.addAction(self.print_action)
+		#self.func_toolbar.addAction(self.print_action)
 		self.func_toolbar.addAction(self.find_action)
 		self.func_toolbar.addAction(self.checkTotalScore_action)
 		
@@ -287,20 +287,20 @@ class studentScoreManage(QMainWindow):
 		#添加一场考试事件
 		"""
 		examName = self.examName_lineedit.text().strip()
-
-		if self.createexam_courseCombox.currentText() == '':
+		courseName = self.createexam_courseCombox.currentText()
+		className = self.createexam_classCombox.currentText()
+		if courseName == '':
 			self.showMessageBox(QMessageBox.Warning,'添加失败','请选择课程')
 			return		
-		elif self.createexam_classCombox.currentText() == '':
+		elif className == '':
 			self.showMessageBox(QMessageBox.Warning,'添加失败','请选择班级')
 			return		
 		elif examName == '':
 			self.showMessageBox(QMessageBox.Warning,'添加失败','考试名称不能为空')
 			return
-		x,courseName_to_id = self.database.getCourseName()
-		y,className_to_id = self.database.getClassName()
-		courseid = courseName_to_id[self.createexam_courseCombox.currentText()]
-		classid = className_to_id[self.createexam_classCombox.currentText()]
+
+		courseid = self.database.course_table.find(courseName=courseName)[0][0]
+		classid = self.database.class_table.find(course_id = courseid, className=className)[0][0]
 		
 		examDate = str(self.examTime.date().toString("yyyy-MM-dd"))
 		if self.database.exam_table.find(classid=classid, courseid = courseid,examName=examName) != []:
@@ -308,8 +308,8 @@ class studentScoreManage(QMainWindow):
 				QMessageBox.Warning,
 				'添加失败',
 				'{0} {1} {2} 已存在，请更改考试名称。'.format(
-						self.createexam_courseCombox.currentText(),
-						self.createexam_classCombox.currentText(),
+						courseName,
+						className,
 						examName
 					)
 			)
@@ -347,6 +347,13 @@ class studentScoreManage(QMainWindow):
 		item.setText(0,examName)
 		item.setCheckState(0, Qt.Unchecked)
 		self.exam_Tree.setExpanded(True)
+
+		self.checkCourse(courseName)
+		self.checkClass(className)
+		self.checkExam(examName)
+
+
+
 		QApplication.processEvents()
 		self.showMessageBox(QMessageBox.Information,'添加考试','添加成功')
 
@@ -736,6 +743,10 @@ class studentScoreManage(QMainWindow):
 		item = QTreeWidgetItem(self.class_Tree)
 		item.setText(0,self.class_name.text())
 		item.setCheckState(0, Qt.Unchecked)
+
+		self.checkCourse(courseName)
+		self.checkClass(className)
+
 		QApplication.processEvents()
 		self.class_Tree.setExpanded(True)
 		select = self.showSelectBox(QMessageBox.Question,"新建成功","是否立即导入学生？",'导入','取消')
@@ -779,11 +790,22 @@ class studentScoreManage(QMainWindow):
 			return
 
 		self.database.course_table.insert(courseNumber,courseName)
-		item = QTreeWidgetItem(self.course_Tree)
-		item.setText(0,self.courseName.text())
-		item.setCheckState(0, Qt.Unchecked)
-		QApplication.processEvents()
+
+		# 将课程插入到成绩查询课程树下
+		currentItem = QTreeWidgetItem(self.course_Tree)
+		currentItem.setText(0,self.courseName.text())
 		self.course_Tree.setExpanded(True)
+		# 恢复颜色
+		for i in range(self.course_Tree.childCount()):
+			self.course_Tree.child(i).setCheckState(0,Qt.Unchecked)
+			self.course_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['background'])))
+		#修改颜色
+		currentItem.setCheckState(0,Qt.Checked)
+		currentItem.setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
+
+		self.checkCourse(courseName)
+
+		QApplication.processEvents()
 		select = self.showSelectBox(QMessageBox.Information, "新建成功","是否立即创建班级？", '确定','取消')
 		if select == QMessageBox.Yes:
 			parent.close()
@@ -1627,7 +1649,6 @@ class studentScoreManage(QMainWindow):
 			self.TABLE_DATA = []
 			self.TABLE_QUESTION_WEIGHT =None
 			self.TABLE_CHANGE = False
-			return
 			all_courses = self.database.course_table.find()
 			for course in all_courses:
 				self.del_one_course(course[0])
@@ -1750,94 +1771,125 @@ class studentScoreManage(QMainWindow):
 		load_action.setIcon(QIcon(':./images/{}.ico'.format('loadScore2' if load_tip=='成绩' else 's')))
 		menu.exec_(QCursor.pos())
 
+	def checkCourse(self,courseName):
+
+		for i in range(self.course_Tree.childCount()):
+				# 恢复颜色
+			if self.course_Tree.child(i).text(0)!=courseName:
+				self.course_Tree.child(i).setCheckState(0,Qt.Unchecked)
+				self.course_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['background'])))
+			else:
+				#修改颜色
+				self.course_Tree.child(i).setCheckState(0,Qt.Checked)
+				self.course_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
+
+		# 恢复到用户点击课程的状态
+		self.modify_score_button.setVisible(False)
+		self.modify_student_button.setVisible(False)
+		self.COURSEID = self.database.course_table.find(courseName=courseName)[0][0]
+		self.CLASSID = None
+		self.EXAMID = None
+		if self.r_widget!=None:
+			self.r_widget.setVisible(False)
+		
+		# 清空班级和考试
+		while self.class_Tree.childCount()!=0:
+			self.class_Tree.removeChild(self.class_Tree.child(0))
+		while self.exam_Tree.childCount()!=0:
+				self.exam_Tree.removeChild(self.exam_Tree.child(0))
+		
+		# 获取该班级下的所有考试
+		all_class, class_to_id = self.database.getClassName(self.COURSEID)
+		for c in all_class:
+			tem = QTreeWidgetItem(self.class_Tree)
+			tem.setText(0, c)
+			tem.setCheckState(0, Qt.Unchecked)
+
+		self.exam_Tree.setExpanded(False)	
+		if self.class_Tree.childCount()!=0:
+			self.class_Tree.setExpanded(True)
+		else:
+			self.class_Tree.setExpanded(False)
+
+	def checkClass(self, className):
+		for i in range(self.class_Tree.childCount()):
+				# 恢复颜色
+			if self.class_Tree.child(i).text(0)!= className:
+				self.class_Tree.child(i).setCheckState(0,Qt.Unchecked)
+				self.class_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['background'])))
+			else:
+				#修改颜色
+				self.class_Tree.child(i).setCheckState(0,Qt.Checked)
+				self.class_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
+
+		if self.COURSEID!=None:
+			if self.r_widget!=None:
+				self.r_widget.setVisible(False)
+			self.CLASSID = self.database.class_table.find(course_id = self.COURSEID,className = className)[0][0]
+			exam, examName_to_id = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)
+			while self.exam_Tree.childCount()!=0:
+				self.exam_Tree.removeChild(self.exam_Tree.child(0))
+			for e in exam:
+				tem = QTreeWidgetItem(self.exam_Tree)
+				tem.setText(0, e)
+				tem.setCheckState(0, Qt.Unchecked)
+			if self.exam_Tree.childCount()!=0:
+				self.exam_Tree.setExpanded(True)
+			else:
+				self.exam_Tree.setExpanded(False)
+			headers, datas, studentid = self.getStudentData(courseid = self.COURSEID, classid = self.CLASSID)
+			self.showStudentTable(headers, datas, studentid)
+
+	def checkExam(self, examName):
+		for i in range(self.exam_Tree.childCount()):
+			if self.exam_Tree.child(i).text(0)!=examName:
+				self.exam_Tree.child(i).setCheckState(0,Qt.Unchecked)
+				self.exam_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['background'])))
+			else:
+				self.exam_Tree.child(i).setCheckState(0,Qt.Checked)
+				self.exam_Tree.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
+		if self.COURSEID!=None and self.CLASSID !=None:
+			self.EXAMNAME = examName
+			self.EXAMID = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)[1][examName]
+			
+			headers,datas,weight_set,student_id = self.get_single_score(
+				examName = examName,
+				classid = self.CLASSID,
+				courseid = self.COURSEID,
+				)
+			
+			self.QUESTION_TYPE = headers[2:]
+			self.QUESTION_WEIGHT = weight_set
+			self.show_single_score(headers,datas,student_id,weight_set)
+			self.setRightWidget()	
+
 	def Check(self):#设置左边查看成绩单的参数，成绩查询接口函数
 		currentItem = self.scoreTree.currentItem()
-		print('hello')
 		if self.scoreTree.currentItem() == self.course_Tree:
-			print('course_tree',self.course_Tree.childCount())
 			if self.course_Tree.childCount() == 0:
 				self.COURSEID = None
 				self.CLASSID = None
 				self.EXAMID = None
 			return
 		elif self.scoreTree.currentItem() == self.class_Tree:
-			print('class_tree',self.class_Tree.childCount())
 			if self.class_Tree.childCount() == 0:
 				self.CLASSID = None
 				self.EXAMID = None
 			return
 		elif self.scoreTree.currentItem() == self.exam_Tree:
-			print('exam_tree',self.exam_Tree.childCount())
 			if  self.exam_Tree.childCount() == 0:
 				self.EXAMID = None
 			return
 
 		parent = currentItem.parent()
-		for i in range(parent.childCount()):
-			parent.child(i).setCheckState(0,Qt.Unchecked)
-			parent.child(i).setBackground(0,QBrush(QColor(self.setting['tree']['background'])))
-		currentItem.setCheckState(0,Qt.Checked)
-		currentItem.setBackground(0,QBrush(QColor(self.setting['tree']['selected_color'])))
-
 		if parent == self.course_Tree:
-			self.modify_score_button.setVisible(False)
-			self.modify_student_button.setVisible(False)
-			self.COURSEID = self.database.getCourseName()[1][currentItem.text(0)]
-			self.CLASSID = None
-			self.EXAMID = None
-			if self.r_widget!=None:
-				self.r_widget.setVisible(False)
-			class_, classname_to_Id = self.database.getClassName()
-			while self.class_Tree.childCount()!=0:
-				self.class_Tree.removeChild(self.class_Tree.child(0))
-			while self.exam_Tree.childCount()!=0:
-					self.exam_Tree.removeChild(self.exam_Tree.child(0))
-			all_class, class_to_id = self.database.getClassName(self.COURSEID)
-			for c in all_class:
-				tem = QTreeWidgetItem(self.class_Tree)
-				tem.setText(0, c)
-				tem.setCheckState(0, Qt.Unchecked)
+			self.checkCourse(currentItem.text(0))	
 
-			self.exam_Tree.setExpanded(False)	
-			if self.class_Tree.childCount()!=0:
-				self.class_Tree.setExpanded(True)
-			else:
-				self.class_Tree.setExpanded(False)
-				
 		elif parent == self.class_Tree:
-			if self.COURSEID!=None:
-				if self.r_widget!=None:
-					self.r_widget.setVisible(False)
-				self.CLASSID = self.database.getClassName(courseid = self.COURSEID)[1][currentItem.text(0)]
-				exam, examName_to_id = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)
-				while self.exam_Tree.childCount()!=0:
-					self.exam_Tree.removeChild(self.exam_Tree.child(0))
-				for e in exam:
-					tem = QTreeWidgetItem(self.exam_Tree)
-					tem.setText(0, e)
-					tem.setCheckState(0, Qt.Unchecked)
-				if self.exam_Tree.childCount()!=0:
-					self.exam_Tree.setExpanded(True)
-				else:
-					self.exam_Tree.setExpanded(False)
-				headers, datas, studentid = self.getStudentData(courseid = self.COURSEID, classid = self.CLASSID)
-				self.showStudentTable(headers, datas, studentid)
-		else:
-			if self.COURSEID!=None and self.CLASSID !=None:
-				self.EXAMNAME = currentItem.text(0)
-				self.EXAMID = self.database.getExamName(courseid = self.COURSEID, classid = self.CLASSID)[1][currentItem.text(0)]
-				
-				headers,datas,weight_set,student_id = self.get_single_score(
-					examName = currentItem.text(0),
-					classid = self.CLASSID,
-					courseid = self.COURSEID,
-					)
-				
+			self.checkClass(currentItem.text(0))
 
-				self.QUESTION_TYPE = headers[2:]
-				self.QUESTION_WEIGHT = weight_set
-				self.show_single_score(headers,datas,student_id,weight_set)
-				self.setRightWidget()
+		else:
+			self.checkExam(currentItem.text(0))
 
 	def changeweight(self,parent): #更改权重
 		select = self.showSelectBox(
@@ -2284,7 +2336,7 @@ class studentScoreManage(QMainWindow):
 			self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']["cell_backgroundcolor"])#恢复表格正常的颜色
 			self.scrollIndex -= 1                                         #获取其行号
 			self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
-			self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+			self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex]-2)  #滚轮定位过去
 	
 	def setColumnColor(self, row, backgroundcolor=''):
 		temp = self.IS_USER_CHANGEITEM
@@ -2316,7 +2368,7 @@ class studentScoreManage(QMainWindow):
 		
 		self.scrollIndex+=1
 		self.setColumnColor(self.search_rows[self.scrollIndex],self.setting['table']['search_select_color'])
-		self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex])  #滚轮定位过去
+		self.Table.verticalScrollBar().setSliderPosition(self.search_rows[self.scrollIndex]-2)  #滚轮定位过去
 
 	def showSearch(self):
 		self.searchFrame.setVisible(True)
